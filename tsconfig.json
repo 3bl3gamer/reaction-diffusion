@@ -1,0 +1,15 @@
+{
+	"extends": "@tsconfig/svelte/tsconfig.json",
+
+	"compilerOptions": {
+		"strictNullChecks": true,
+		"strictFunctionTypes": true,
+		"strictBindCallApply": true,
+		"strictPropertyInitialization": true,
+		"noImplicitThis": true,
+		"typeRoots": ["./node_modules/@types", "src/types"]
+	},
+
+	"include": ["src/**/*"],
+	"exclude": ["node_modules/*", "public/*"]
+}
