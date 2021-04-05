@@ -1,9 +1,14 @@
+<script context="module" lang="ts">
+	export type FrameMode = 'visible' | 'darken' | 'hidden'
+</script>
+
 <script lang="ts">
 	import CoefInput from './CoefInput.svelte'
 	import type { ReactionDiffusion } from './engine'
 
 	export let engine: ReactionDiffusion
 	export let frameSize: number
+	export let frameMode: FrameMode = 'darken'
 
 	const e = () => engine //hiding engine (and it's methods) from reactivity
 
@@ -11,29 +16,27 @@
 	$: diffusionRateB = e().getCoefs().diffusionRateB
 	$: killRate = e().getCoefs().killRate
 	$: feedRate = e().getCoefs().feedRate
+	const onCoefChange = () => engine.updateCoefsFB()
 
-	$: if (wrapMode === wrapMode) {
-		console.log(wrapMode)
-		e().setWrapMode(wrapMode)
-	}
+	$: e().setWrapMode(wrapMode)
 	$: wrapMode = e().getWrapMode()
 
-	function onCoefChange() {
-		engine.updateCoefsFB()
-	}
+	$: e().toggleFrame(frameMode === 'darken')
 </script>
 
 <div class="cfg-wrap">
 	<div class="cfg-head">...</div>
 	<div class="cfg-scroll">
-		<fieldset>
+		<fieldset class="sim-cfg">
 			<legend>Симуляция</legend>
+			<div class="mask-label small">маска</div>
 			<CoefInput
 				label="a diffusion rate"
 				bind:coef={diffusionRateA}
 				onChange={onCoefChange}
 				masks={engine.getMasks()}
 				slideStep={0.001}
+				paddingTop="4px"
 			/>
 			<CoefInput
 				label="b diffusion rate"
@@ -41,6 +44,7 @@
 				onChange={onCoefChange}
 				masks={engine.getMasks()}
 				slideStep={0.001}
+				paddingTop="7px"
 			/>
 			<CoefInput
 				label="feed rate"
@@ -48,6 +52,7 @@
 				onChange={onCoefChange}
 				masks={engine.getMasks()}
 				slideStep={0.0001}
+				paddingTop="7px"
 			/>
 			<CoefInput
 				label="kill rate"
@@ -55,6 +60,7 @@
 				onChange={onCoefChange}
 				masks={engine.getMasks()}
 				slideStep={0.0001}
+				paddingTop="7px"
 			/>
 		</fieldset>
 		<fieldset class="frame-cfg">
@@ -66,9 +72,11 @@
 					<div class="small dim">влияет на<br />симуляцию</div>
 				</div>
 				<div class="column">
-					<label><input type="radio" name="display_mode" />отображать</label><br />
-					<label><input type="radio" name="display_mode" />затемнять</label><br />
-					<label><input type="radio" name="display_mode" />скрыть</label>
+					<label><input type="radio" value="visible" bind:group={frameMode} />отображать</label><br
+					/>
+					<label><input type="radio" value="darken" bind:group={frameMode} />затемнять</label><br />
+					<label><input type="radio" value="hidden" bind:group={frameMode} />скрыть</label>
+					<span class="small dim">быстрее</span>
 				</div>
 			</div>
 			<div>
@@ -82,8 +90,10 @@
 
 <style>
 	.cfg-wrap {
-		position: absolute;
-		max-height: 100%;
+		position: fixed;
+		left: 0;
+		top: 0;
+		max-height: 100vh;
 		background-color: rgba(255, 255, 255, 0.92);
 		transition: opacity 0.1s ease;
 		z-index: 1;
@@ -139,6 +149,15 @@
 		padding-bottom: 0;
 		padding-top: 0;
 	} */
+
+	.sim-cfg {
+		position: relative;
+	}
+	.mask-label {
+		position: absolute;
+		right: 44px;
+		top: -10px;
+	}
 
 	.frame-cfg .switches {
 		display: flex;

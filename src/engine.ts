@@ -4,13 +4,6 @@ import { createShaderProgram, mustGetUniformLocation } from './gfx/shaders'
 import { createGfxTexture2d, GfxTexture2d } from './gfx/textures'
 import { makeSimpleDrawFunc, setRenderTarget } from './gfx/utils'
 
-// export class ScalarCoef {
-// 	constructor(public value: number) {}
-// }
-// export class RangeCoef {
-// 	constructor(public dim: 'x' | 'y', public from: number, public to: number) {}
-// }
-// export type AnyCoef = ScalarCoef | RangeCoef
 
 export type Mask = {
 	fill(tex: GfxTexture2d, channel: number, valMin: number, valMax: number): void
@@ -154,6 +147,7 @@ varying vec2 vTextureCoord;
 uniform sampler2D uSampler;
 uniform vec2 uOffset;
 uniform vec2 uSize;
+uniform lowp int uFrameVisible;
 
 void main(void) {
 	vec2 pos = vTextureCoord*uSize + uOffset;
@@ -162,7 +156,9 @@ void main(void) {
 	// float isIn = pos.x >= 0. && pos.y >= 0. && pos.x < 1. && pos.y < 1. ? 1. : 0.7;
 	vec2 innerRect = step(0., pos) * step(-1., -pos);
 	vec2 outerRect = step(-0.005, pos) * step(-1.005, -pos);
-	float isIn = (min(innerRect.x, innerRect.y)*0.8+0.2) + (1.-min(outerRect.x, outerRect.y))*0.4;
+	float isIn = uFrameVisible > 0
+		? (min(innerRect.x, innerRect.y)*0.8+0.2) + (1.-min(outerRect.x, outerRect.y))*0.4
+		: 1.;
 	gl_FragColor = vec4(mix(vec3(0.5), vec3(c, c, c), isIn), 1.);
 	// gl_FragColor = vec4(c, 1.-col.y, col.x, 1.);
 }`
@@ -176,9 +172,10 @@ export class ReactionDiffusion {
 	private masks: Mask[]
 
 	private wrapMode: WrapMode = 'repeat'
+	private frameIsVisible = true
 
 	private drawIteration: () => void
-	private drawResult: (view: View) => void
+	private drawResult: (view: View | null) => void
 
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
 		this.curFB = createGfxFramebuffer(gl, makeFieldTexture(gl, width, height))
@@ -226,11 +223,19 @@ export class ReactionDiffusion {
 		})
 		const uOffset = mustGetUniformLocation(gl, progResult, 'uOffset')
 		const uSize = mustGetUniformLocation(gl, progResult, 'uSize')
+		const uFrameVisible = mustGetUniformLocation(gl, progResult, 'uFrameVisible')
 		this.drawResult = makeSimpleDrawFunc(gl, rect, progResult, {
-			beforeDraw: (view: View) => {
-				const { width: gw, height: gh } = gl.canvas
-				gl.uniform2f(uOffset, -view.x / view.width, -view.y / view.height)
-				gl.uniform2f(uSize, gw / view.width, gh / view.height)
+			beforeDraw: (view: View | null) => {
+				if (view === null) {
+					gl.uniform2f(uOffset, 0, 0)
+					gl.uniform2f(uSize, 1, 1)
+					gl.uniform1i(uFrameVisible, 0)
+				} else {
+					const { width: gw, height: gh } = gl.canvas
+					gl.uniform2f(uOffset, -view.x / view.width, -view.y / view.height)
+					gl.uniform2f(uSize, gw / view.width, gh / view.height)
+					gl.uniform1i(uFrameVisible, this.frameIsVisible ? 1 : 0)
+				}
 			},
 		})
 	}
@@ -252,7 +257,7 @@ export class ReactionDiffusion {
 		}
 	}
 
-	draw(view: View): void {
+	draw(view: View | null): void {
 		setRenderTarget(this.gl, null)
 		// this.gl.viewport(0, 0, this.width, this.height)
 		this.curFB.gfxTex.bind(this.gl)
@@ -307,6 +312,12 @@ export class ReactionDiffusion {
 	setWrapMode(wrapMode: WrapMode): void {
 		this.wrapMode = wrapMode
 		this.updateTexWrapMode()
+	}
+	isFrameVisible(): boolean {
+		return this.frameIsVisible
+	}
+	toggleFrame(isVisible: boolean): void {
+		this.frameIsVisible = isVisible
 	}
 }
 
