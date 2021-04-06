@@ -1,7 +1,7 @@
 import { mat3 } from 'gl-matrix'
 import type { GfxBuffer } from './buffers'
 import type { GfxFramebuffer } from './framebuffers'
-import { mustGetAttributeLocation, useShaderProgram } from './shaders'
+import { GfxSharerProgram, mustGetGfxAttribLocation } from './shaders'
 
 export type TypedArray =
 	| Int8Array
@@ -45,19 +45,19 @@ export function setRenderTarget(gl: WebGLRenderingContext, framebuffer: GfxFrame
 export function makeSimpleDrawFunc<T extends unknown[]>(
 	gl: WebGLRenderingContext,
 	buffer: GfxBuffer,
-	shader: WebGLProgram,
+	shader: GfxSharerProgram,
 	opts: { defaultTransfMat?: mat3; beforeDraw?: (...args: T) => unknown } = {},
 ): (...args: T) => void {
 	//transfMat: mat3
 	const { defaultTransfMat = mat3.create(), beforeDraw = null } = opts || {}
-	const aPos = mustGetAttributeLocation(gl, shader, 'aPosition')
+	const aPos = mustGetGfxAttribLocation(gl, shader, 'aPosition')
 	gl.enableVertexAttribArray(aPos)
 	// const uTransf = shader.getUniformLocation(gl, 'uTransform')
 	// const uSampler = shader.getUniformLocation(gl, 'uSampler')
 
 	return function draw(...args /*transfMat = defaultTransfMat*/) {
 		buffer.bindToAttribute(gl, aPos)
-		useShaderProgram(gl, shader)
+		shader.useProgram(gl)
 		// gl.uniformMatrix3fv(uTransf, false, transfMat)
 		if (beforeDraw) beforeDraw(...args)
 		buffer.draw(gl)

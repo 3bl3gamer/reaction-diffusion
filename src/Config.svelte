@@ -16,7 +16,7 @@
 	$: diffusionRateB = e().getCoefs().diffusionRateB
 	$: killRate = e().getCoefs().killRate
 	$: feedRate = e().getCoefs().feedRate
-	const onCoefChange = () => engine.updateCoefsFB()
+	const onMaskChange = () => engine.updateIterationData()
 
 	$: e().setWrapMode(wrapMode)
 	$: wrapMode = e().getWrapMode()
@@ -33,7 +33,7 @@
 			<CoefInput
 				label="a diffusion rate"
 				bind:coef={diffusionRateA}
-				onChange={onCoefChange}
+				{onMaskChange}
 				masks={engine.getMasks()}
 				slideStep={0.001}
 				paddingTop="4px"
@@ -41,7 +41,7 @@
 			<CoefInput
 				label="b diffusion rate"
 				bind:coef={diffusionRateB}
-				onChange={onCoefChange}
+				{onMaskChange}
 				masks={engine.getMasks()}
 				slideStep={0.001}
 				paddingTop="7px"
@@ -49,7 +49,7 @@
 			<CoefInput
 				label="feed rate"
 				bind:coef={feedRate}
-				onChange={onCoefChange}
+				{onMaskChange}
 				masks={engine.getMasks()}
 				slideStep={0.0001}
 				paddingTop="7px"
@@ -57,7 +57,7 @@
 			<CoefInput
 				label="kill rate"
 				bind:coef={killRate}
-				onChange={onCoefChange}
+				{onMaskChange}
 				masks={engine.getMasks()}
 				slideStep={0.0001}
 				paddingTop="7px"

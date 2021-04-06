@@ -4,7 +4,6 @@
 	import type { FrameMode } from './Config.svelte'
 	import { ReactionDiffusion, setupRecorder } from './engine'
 	import FPS from './FPS.svelte'
-	import { mustgetWebGLContext } from './gfx/utils'
 
 	let fps: FPS | null = null
 	let drawRegion: HTMLDivElement
@@ -101,7 +100,7 @@
 			function step() {
 				requestAnimationFrame(step)
 
-				const n = 1
+				const n = 64
 				rd.iter(n)
 				fps && fps.frame(n)
 

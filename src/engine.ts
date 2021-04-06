@@ -1,60 +1,60 @@
 import { createGfxFramebuffer, GfxFramebuffer } from './gfx/framebuffers'
 import { createGfxBuffer, GfxBuffer } from './gfx/buffers'
-import { createShaderProgram, mustGetUniformLocation } from './gfx/shaders'
+import {
+	createGfxShaderProgram,
+	deleteGfxShaderProgramWithShaders,
+	GfxSharerProgram,
+	mustGetGfxUniformLocation,
+} from './gfx/shaders'
 import { createGfxTexture2d, GfxTexture2d } from './gfx/textures'
 import { makeSimpleDrawFunc, setRenderTarget } from './gfx/utils'
 
+type FSParts = { declaration: string; usage: string }
+type FSPrepareFunc = (valMin: number, valMax: number) => void
 
 export type Mask = {
-	fill(tex: GfxTexture2d, channel: number, valMin: number, valMax: number): void
+	getFSParts(suffix: string): FSParts
+	prepareFSUniforms(gl: WebGLRenderingContext, prog: GfxSharerProgram, suffix: string): FSPrepareFunc
 }
 
 export class MaskSolid {
-	private draw: (tex: GfxTexture2d, channel: number, valMin: number, valMax: number) => void
-	private uChannel: WebGLUniformLocation
-	private uValueRange: WebGLUniformLocation
+	getFSParts(suffix: string): FSParts {
+		return { declaration: `uniform float uMaskSolid${suffix};`, usage: `uMaskSolid${suffix}` }
+	}
+	prepareFSUniforms(gl: WebGLRenderingContext, prog: GfxSharerProgram, suffix: string): FSPrepareFunc {
+		const uMaskGradient = mustGetGfxUniformLocation(gl, prog, `uMaskSolid${suffix}`)
+		return (valMin: number, valMax: number) => {
+			gl.uniform1f(uMaskGradient, valMax)
+		}
+	}
+}
 
-	constructor(gl: WebGLRenderingContext, rect: GfxBuffer) {
-		const fs = `
-		precision highp float;
+export class MaskGradient {
+	constructor(private angle: number) {}
 
-		varying vec2 vTextureCoord;
-		uniform sampler2D uSampler;
-		uniform int uChannel;
-		uniform vec2 uValueRange;
-
-		void main(void) {
-			vec4 c = texture2D(uSampler, vTextureCoord);
-			if (uChannel == 0) c.x = uValueRange.y;
-			if (uChannel == 1) c.y = uValueRange.y;
-			if (uChannel == 2) c.z = uValueRange.y;
-			if (uChannel == 3) c.w = uValueRange.y;
-			gl_FragColor = c;
-		}`
-		const prog = createShaderProgram(gl, simpleTextureVS, fs)
-		this.uChannel = mustGetUniformLocation(gl, prog, 'uChannel')
-		this.uValueRange = mustGetUniformLocation(gl, prog, 'uValueRange')
-		this.draw = makeSimpleDrawFunc(gl, rect, prog, {
-			beforeDraw: (tex: GfxTexture2d, channel: number, valMin: number, valMax: number) => {
-				gl.uniform1i(this.uChannel, channel)
-				gl.uniform2f(this.uValueRange, valMin, valMax)
-				gl.activeTexture(gl.TEXTURE0)
-				tex.bind(gl)
-			},
-		})
+	getFSParts(suffix: string): FSParts {
+		const c = Math.cos(this.angle).toFixed(5)
+		const s = Math.sin(-this.angle).toFixed(5) //-angle since y is flipped (goes up)
+		const varName = 'uMaskGradient' + suffix
+		return {
+			declaration: `uniform vec2 ${varName};`,
+			usage: `mix(${varName}.x, ${varName}.y, clamp(0.5 + dot(vTextureCoord-0.5, vec2(${c},${s})), 0., 1.))`,
+		}
+	}
+	prepareFSUniforms(gl: WebGLRenderingContext, prog: GfxSharerProgram, suffix: string): FSPrepareFunc {
+		const uMaskGradient = mustGetGfxUniformLocation(gl, prog, `uMaskGradient${suffix}`)
+		return (valMin: number, valMax: number) => {
+			gl.uniform2f(uMaskGradient, valMin, valMax)
+		}
 	}
 
-	fill(tex: GfxTexture2d, channel: number, valMin: number, valMax: number): void {
-		this.draw(tex, channel, valMin, valMax)
+	getAngleDeg(): number {
+		return (this.angle / Math.PI) * 180
 	}
 }
 
 export class Coef {
 	constructor(public minVal: number, public maxVal: number, public mask: Mask) {}
-
-	fill(tex: GfxTexture2d, channel: number): void {
-		this.mask.fill(tex, channel, this.maxVal, this.minVal)
-	}
 }
 
 export type Coefs = {
@@ -101,22 +101,22 @@ void main(void) {
 	vTextureCoord = aPosition;
 	gl_Position = vec4((aPosition.xy-0.5)*2., 0, 1.);
 }`
-const iterationFS = `
+const iterationFSRaw = `
 precision highp float;
 precision highp sampler2D;
 
 varying vec2 vTextureCoord;
 uniform sampler2D uSampler;
-uniform sampler2D uSamplerCoefs;
 uniform float uTimeDelta;
 uniform vec2 uScale;
+{{COEF_DECLARATIONS}}
 
 void main(void) {
-	vec4 c = texture2D(uSamplerCoefs, vTextureCoord);
-	float diffusionRateA = c.x;//1.0 + mix(0.3, 1.0, vTextureCoord.x)*0.;
-	float diffusionRateB = c.y;//0.5 + mix(0.1, 0.6, vTextureCoord.y)*0.;
-	float feedRate = c.z;//0.055 + mix(0.01-0.007, 0.1+0.03, vTextureCoord.x)*0.;
-	float killRate = c.w;//0.062 + mix(0.045-0.01, 0.07+0.01, vTextureCoord.y)*0.;
+	// vec4 c = texture2D(uSamplerCoefs, vTextureCoord);
+	float diffusionRateA = {{diffusionRateA}};
+	float diffusionRateB = {{diffusionRateB}};
+	float feedRate = {{feedRate}};
+	float killRate = {{killRate}};
 
 	vec2 cur = texture2D(uSampler, vTextureCoord).xy;
 
@@ -167,6 +167,7 @@ export class ReactionDiffusion {
 	private curFB: GfxFramebuffer
 	private nextFB: GfxFramebuffer
 	private coefsFB: GfxFramebuffer
+	private rect: GfxBuffer
 
 	private coefs: Coefs
 	private masks: Mask[]
@@ -174,7 +175,10 @@ export class ReactionDiffusion {
 	private wrapMode: WrapMode = 'repeat'
 	private frameIsVisible = true
 
-	private drawIteration: () => void
+	private iteration: {
+		prog: GfxSharerProgram
+		draw: () => void
+	} | null = null
 	private drawResult: (view: View | null) => void
 
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
@@ -193,38 +197,30 @@ export class ReactionDiffusion {
 		this.coefsFB = createGfxFramebuffer(gl, makeFieldTexture(gl, 2, 2))
 
 		const rectVtx = [0,0, 0,1, 1,1, 1,1, 1,0, 0,0] //prettier-ignore
-		const rect = createGfxBuffer(gl, rectVtx, 2, gl.TRIANGLES)
+		this.rect = createGfxBuffer(gl, rectVtx, 2, gl.TRIANGLES)
 
-		const progIteration = createShaderProgram(gl, simpleTextureVS, iterationFS)
-		const progResult = createShaderProgram(gl, simpleTextureVS, resultFS)
-
-		const maskSolid = new MaskSolid(gl, rect)
+		const maskSolid = new MaskSolid()
 		this.coefs = {
 			diffusionRateA: new Coef(1.0, 1.0, maskSolid),
 			diffusionRateB: new Coef(0.5, 0.5, maskSolid),
 			feedRate: new Coef(0.055, 0.055, maskSolid),
 			killRate: new Coef(0.062, 0.062, maskSolid),
 		}
-		this.masks = [maskSolid]
+		this.masks = [
+			maskSolid,
+			new MaskGradient(0),
+			new MaskGradient((Math.PI * 3) / 2),
+			new MaskGradient(Math.PI / 4),
+			new MaskGradient((Math.PI * 7) / 4),
+		]
 
-		this.updateCoefsFB()
+		this.updateIterationData()
 
-		const uScale = mustGetUniformLocation(gl, progIteration, 'uScale')
-		const uSampler = mustGetUniformLocation(gl, progIteration, 'uSampler')
-		const uSamplerCoefs = mustGetUniformLocation(gl, progIteration, 'uSamplerCoefs')
-		const uTimeDelta = mustGetUniformLocation(gl, progIteration, 'uTimeDelta')
-		this.drawIteration = makeSimpleDrawFunc(gl, rect, progIteration, {
-			beforeDraw: () => {
-				gl.uniform2f(uScale, 1 / this.width, 1 / this.height)
-				gl.uniform1i(uSampler, 0)
-				gl.uniform1i(uSamplerCoefs, 1)
-				gl.uniform1f(uTimeDelta, 0.5)
-			},
-		})
-		const uOffset = mustGetUniformLocation(gl, progResult, 'uOffset')
-		const uSize = mustGetUniformLocation(gl, progResult, 'uSize')
-		const uFrameVisible = mustGetUniformLocation(gl, progResult, 'uFrameVisible')
-		this.drawResult = makeSimpleDrawFunc(gl, rect, progResult, {
+		const progResult = createGfxShaderProgram(gl, simpleTextureVS, resultFS)
+		const uOffset = mustGetGfxUniformLocation(gl, progResult, 'uOffset')
+		const uSize = mustGetGfxUniformLocation(gl, progResult, 'uSize')
+		const uFrameVisible = mustGetGfxUniformLocation(gl, progResult, 'uFrameVisible')
+		this.drawResult = makeSimpleDrawFunc(gl, this.rect, progResult, {
 			beforeDraw: (view: View | null) => {
 				if (view === null) {
 					gl.uniform2f(uOffset, 0, 0)
@@ -252,7 +248,7 @@ export class ReactionDiffusion {
 			gl.activeTexture(gl.TEXTURE0)
 			this.curFB.gfxTex.bind(gl)
 
-			this.drawIteration()
+			this.iteration && this.iteration.draw()
 			;[this.curFB, this.nextFB] = [this.nextFB, this.curFB]
 		}
 	}
@@ -264,28 +260,48 @@ export class ReactionDiffusion {
 		this.drawResult(view)
 	}
 
-	updateCoefsFB(): void {
+	updateIterationData(): void {
 		const gl = this.gl
-		const nextFB = this.nextFB
-		const coefsFB = this.coefsFB
-		// Safari does not support EXT_float_blend, so we can't just add-blend 4 channes one-by-one
-		setRenderTarget(gl, this.coefsFB)
-		gl.clearColor(0, 0, 0, 0)
-		gl.clear(gl.COLOR_BUFFER_BIT)
+		if (this.iteration) deleteGfxShaderProgramWithShaders(gl, this.iteration.prog)
 
-		setRenderTarget(gl, nextFB)
-		this.coefs.diffusionRateA.fill(coefsFB.gfxTex, 0)
+		const coefs = Object.entries(this.coefs)
 
-		setRenderTarget(gl, coefsFB)
-		this.coefs.diffusionRateB.fill(nextFB.gfxTex, 1)
+		let iterationFS = iterationFSRaw
+		let declarations = ''
+		for (const [name, coef] of coefs) {
+			const { declaration, usage } = coef.mask.getFSParts('_' + name)
+			declarations += declaration + '\n'
+			iterationFS = iterationFS.replace(`{{${name}}}`, usage)
+		}
+		iterationFS = iterationFS.replace('{{COEF_DECLARATIONS}}', declarations)
+		console.log(iterationFS)
 
-		setRenderTarget(gl, nextFB)
-		this.coefs.feedRate.fill(coefsFB.gfxTex, 2)
+		const prog = createGfxShaderProgram(gl, simpleTextureVS, iterationFS)
 
-		setRenderTarget(gl, coefsFB)
-		this.coefs.killRate.fill(nextFB.gfxTex, 3)
+		const prepareFuncs: FSPrepareFunc[] = []
+		for (const [name, coef] of coefs) {
+			prepareFuncs.push(coef.mask.prepareFSUniforms(gl, prog, '_' + name))
+		}
 
-		setRenderTarget(gl, null)
+		const uScale = mustGetGfxUniformLocation(gl, prog, 'uScale')
+		const uSampler = mustGetGfxUniformLocation(gl, prog, 'uSampler')
+		const uSamplerCoefs = null
+		const uTimeDelta = mustGetGfxUniformLocation(gl, prog, 'uTimeDelta')
+
+		const draw = makeSimpleDrawFunc(gl, this.rect, prog, {
+			beforeDraw: () => {
+				gl.uniform2f(uScale, 1 / this.width, 1 / this.height)
+				gl.uniform1i(uSampler, 0)
+				if (uSamplerCoefs !== null) gl.uniform1i(uSamplerCoefs, 1)
+				gl.uniform1f(uTimeDelta, 0.5)
+				for (let i = 0; i < coefs.length; i++) {
+					const coef = coefs[i][1]
+					prepareFuncs[i](coef.minVal, coef.maxVal)
+				}
+			},
+		})
+
+		this.iteration = { prog, draw }
 	}
 	updateTexWrapMode(): void {
 		const gl = this.gl
