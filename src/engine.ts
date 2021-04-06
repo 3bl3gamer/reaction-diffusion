@@ -8,6 +8,7 @@ import {
 } from './gfx/shaders'
 import { createGfxTexture2d, GfxTexture2d, resizeGfxTexture2d } from './gfx/textures'
 import { makeSimpleDrawFunc, setRenderTarget } from './gfx/utils'
+import { mat3 } from 'gl-matrix'
 
 type FSParts = { declaration: string; usage: string }
 type FSPrepareFunc = (valMin: number, valMax: number) => void
@@ -171,6 +172,24 @@ uniform sampler2D uSampler;
 void main(void) {
 	gl_FragColor = texture2D(uSampler, vTextureCoord);
 }`
+const lineVS = `
+precision highp float;
+
+attribute vec2 aPosition;
+uniform mat3 uTransform;
+
+void main(void) {
+	gl_Position = vec4(((uTransform*vec3(aPosition, 1.)).xy-0.5)*2., 0, 1.);
+}`
+const lineFS = `
+precision highp float;
+
+uniform vec4 uColor;
+
+void main(void) {
+	gl_FragColor = uColor;
+}`
+const LINE_W = 5
 
 export class ReactionDiffusion {
 	private curFB: GfxFramebuffer
@@ -190,6 +209,7 @@ export class ReactionDiffusion {
 	} | null = null
 	private drawResult: (view: View | null) => void
 	private drawCopy: () => void
+	private drawLineInner: (x0: number, y0: number, x1: number, y1: number) => void
 
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
 		this.curFB = createGfxFramebuffer(gl, makeFieldTexture(gl, width, height))
@@ -247,6 +267,24 @@ export class ReactionDiffusion {
 
 		const progCopy = createGfxShaderProgram(gl, simpleTextureVS, copyFS)
 		this.drawCopy = makeSimpleDrawFunc(gl, this.rect, progCopy)
+
+		const progLine = createGfxShaderProgram(gl, lineVS, lineFS)
+		const uTransform = mustGetGfxUniformLocation(gl, progLine, 'uTransform')
+		const uColor = mustGetGfxUniformLocation(gl, progLine, 'uColor')
+		this.drawLineInner = makeSimpleDrawFunc(gl, this.rect, progLine, {
+			beforeDraw: (x0: number, y0: number, x1: number, y1: number) => {
+				const len = Math.sqrt((x1 - x0) ** 2 + (y0 - y1) ** 2) + 1
+				const dir = Math.atan2(y1 - y0, x1 - x0)
+				const mat = mat3.create()
+				mat3.translate(mat, mat, [0, 1])
+				mat3.scale(mat, mat, [1, -1])
+				mat3.translate(mat, mat, [x0 / this.width, y0 / this.height])
+				mat3.rotate(mat, mat, dir)
+				mat3.scale(mat, mat, [len / this.width, LINE_W / this.height])
+				gl.uniform4f(uColor, 0, 1, 0, 0)
+				gl.uniformMatrix3fv(uTransform, false, mat)
+			},
+		})
 	}
 
 	iter(n: number): void {
@@ -346,6 +384,14 @@ export class ReactionDiffusion {
 
 		this.width = width
 		this.height = height
+	}
+	drawDot(x: number, y: number): void {
+		setRenderTarget(this.gl, this.curFB)
+		this.drawLineInner(x - LINE_W / 2, y, x + LINE_W / 2, y)
+	}
+	drawLine(x0: number, y0: number, x1: number, y1: number): void {
+		setRenderTarget(this.gl, this.curFB)
+		this.drawLineInner(x0, y0, x1, y1)
 	}
 
 	getMaxFieldSize(): number {

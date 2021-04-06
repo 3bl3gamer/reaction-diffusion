@@ -4,6 +4,7 @@
 	import type { FrameMode } from './Config.svelte'
 	import { ReactionDiffusion, setupRecorder } from './engine'
 	import FPS from './FPS.svelte'
+	import { controlSingle } from 'js-control'
 
 	let fps: FPS | null = null
 	let ips: FPS | null = null
@@ -115,6 +116,46 @@
 		}, 0)
 	})
 
+	function xy2canvas(x: number, y: number): [number, number] {
+		if (!engine) return [x, y]
+		if (frameMode === 'hidden') {
+			const cs = devicePixelRatio / (mainRegion.width / canvas.width)
+			return [x * cs, y * cs]
+		} else {
+			const [enWidth] = engine.getSize()
+			const rect = drawRegion.getBoundingClientRect()
+			const cs = canvas.width / rect.width
+			const rs = enWidth / mainRegion.width
+			return [(x * cs - mainRegion.x) * rs, (y * cs - mainRegion.y) * rs]
+		}
+	}
+	onMount(() => {
+		let prevX = 0
+		let prevY = 0
+		const control = controlSingle({
+			startElem: drawRegion,
+			offsetElem: canvas,
+			callbacks: {
+				singleDown(e, id, x, y) {
+					prevX = x
+					prevY = y
+					engine && engine.drawDot(...xy2canvas(x, y))
+					return true
+				},
+				singleMove(e, id, x, y) {
+					engine && engine.drawLine(...xy2canvas(prevX, prevY), ...xy2canvas(x, y))
+					prevX = x
+					prevY = y
+					return true
+				},
+				singleUp(e, id) {
+					return true
+				},
+			},
+		})
+		return () => control.off()
+	})
+
 	function onResize() {
 		resizeCanvas()
 	}
@@ -151,6 +192,7 @@
 		width: 100vw;
 		height: 100vh;
 		overflow: hidden;
+		cursor: crosshair;
 	}
 	.main-canvas {
 		outline: 2px solid gray;
