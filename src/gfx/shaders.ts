@@ -27,7 +27,7 @@ export function createGfxShaderProgram(
 	gl.attachShader(shaderProg, vShader)
 	gl.attachShader(shaderProg, fShader)
 	gl.linkProgram(shaderProg)
-	console.log('TODO', gl.getProgramParameter(shaderProg, gl.LINK_STATUS))
+	assertProgramIsOk(gl, shaderProg)
 	return new GfxSharerProgram(vShader, fShader, shaderProg)
 }
 
@@ -71,5 +71,10 @@ export function mustGetGfxUniformLocation(
 
 export function assertShaderIsOk(gl: WebGLRenderingContext, shader: WebGLShader): void {
 	const msg = gl.getShaderInfoLog(shader)
+	if (msg !== '' && msg !== null) throw new Error(msg)
+}
+export function assertProgramIsOk(gl: WebGLRenderingContext, program: WebGLProgram): void {
+	// if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+	const msg = gl.getProgramInfoLog(program)
 	if (msg !== '' && msg !== null) throw new Error(msg)
 }

@@ -6,7 +6,7 @@ import {
 	GfxSharerProgram,
 	mustGetGfxUniformLocation,
 } from './gfx/shaders'
-import { createGfxTexture2d, GfxTexture2d } from './gfx/textures'
+import { createGfxTexture2d, GfxTexture2d, resizeGfxTexture2d } from './gfx/textures'
 import { makeSimpleDrawFunc, setRenderTarget } from './gfx/utils'
 
 type FSParts = { declaration: string; usage: string }
@@ -162,11 +162,20 @@ void main(void) {
 	gl_FragColor = vec4(mix(vec3(0.5), vec3(c, c, c), isIn), 1.);
 	// gl_FragColor = vec4(c, 1.-col.y, col.x, 1.);
 }`
+const copyFS = `
+precision highp float;
+
+varying vec2 vTextureCoord;
+uniform sampler2D uSampler;
+
+void main(void) {
+	gl_FragColor = texture2D(uSampler, vTextureCoord);
+}`
 
 export class ReactionDiffusion {
 	private curFB: GfxFramebuffer
 	private nextFB: GfxFramebuffer
-	private coefsFB: GfxFramebuffer
+	// private coefsFB: GfxFramebuffer
 	private rect: GfxBuffer
 
 	private coefs: Coefs
@@ -180,6 +189,7 @@ export class ReactionDiffusion {
 		draw: () => void
 	} | null = null
 	private drawResult: (view: View | null) => void
+	private drawCopy: () => void
 
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
 		this.curFB = createGfxFramebuffer(gl, makeFieldTexture(gl, width, height))
@@ -194,7 +204,7 @@ export class ReactionDiffusion {
 			const y = (height * (0.5 + (Math.random() - 0.5) * 0.9)) | 0
 			addDot(gl, this.curFB.gfxTex, x, y)
 		}
-		this.coefsFB = createGfxFramebuffer(gl, makeFieldTexture(gl, 2, 2))
+		// this.coefsFB = createGfxFramebuffer(gl, makeFieldTexture(gl, 2, 2))
 
 		const rectVtx = [0,0, 0,1, 1,1, 1,1, 1,0, 0,0] //prettier-ignore
 		this.rect = createGfxBuffer(gl, rectVtx, 2, gl.TRIANGLES)
@@ -234,13 +244,16 @@ export class ReactionDiffusion {
 				}
 			},
 		})
+
+		const progCopy = createGfxShaderProgram(gl, simpleTextureVS, copyFS)
+		this.drawCopy = makeSimpleDrawFunc(gl, this.rect, progCopy)
 	}
 
 	iter(n: number): void {
 		const gl = this.gl
 
-		gl.activeTexture(gl.TEXTURE1)
-		this.coefsFB.gfxTex.bind(gl)
+		// gl.activeTexture(gl.TEXTURE1)
+		// this.coefsFB.gfxTex.bind(gl)
 
 		for (let i = 0; i < n; i++) {
 			setRenderTarget(gl, this.nextFB)
@@ -274,7 +287,6 @@ export class ReactionDiffusion {
 			iterationFS = iterationFS.replace(`{{${name}}}`, usage)
 		}
 		iterationFS = iterationFS.replace('{{COEF_DECLARATIONS}}', declarations)
-		console.log(iterationFS)
 
 		const prog = createGfxShaderProgram(gl, simpleTextureVS, iterationFS)
 
@@ -313,6 +325,32 @@ export class ReactionDiffusion {
 		}
 	}
 
+	private resizeFB(fb: GfxFramebuffer, width: number, height: number): void {
+		const gl = this.gl
+		resizeGfxTexture2d(gl, fb.gfxTex, width, height)
+		fb.bind(gl)
+		gl.clear(gl.COLOR_BUFFER_BIT)
+	}
+	resize(width: number, height: number): void {
+		const gl = this.gl
+
+		this.resizeFB(this.nextFB, width, height)
+		setRenderTarget(gl, this.nextFB)
+		this.curFB.gfxTex.bind(gl)
+		this.drawCopy()
+
+		this.resizeFB(this.curFB, width, height)
+		setRenderTarget(gl, this.curFB)
+		this.nextFB.gfxTex.bind(gl)
+		this.drawCopy()
+
+		this.width = width
+		this.height = height
+	}
+
+	getMaxFieldSize(): number {
+		return this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE)
+	}
 	getCoefs(): Coefs {
 		return this.coefs
 	}

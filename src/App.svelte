@@ -6,6 +6,7 @@
 	import FPS from './FPS.svelte'
 
 	let fps: FPS | null = null
+	let ips: FPS | null = null
 	let drawRegion: HTMLDivElement
 	let canvas: HTMLCanvasElement
 	let engine: ReactionDiffusion | null = null
@@ -99,12 +100,14 @@
 		setTimeout(() => {
 			function step() {
 				requestAnimationFrame(step)
+				// setTimeout(step, 1000)
 
-				const n = 64
+				const n = 24
 				rd.iter(n)
-				fps && fps.frame(n)
+				ips && ips.frame(n)
 
 				rd.draw(frameMode === 'hidden' ? null : mainRegion)
+				fps && fps.frame()
 
 				// recorder.requestFrame()
 			}
@@ -128,8 +131,9 @@
 <svelte:window on:resize={onResize} />
 
 {#if engine}
-	<Config {engine} bind:frameSize={maxFrameSize} bind:frameMode>
-		<span slot="fps"><FPS bind:this={fps} intervalMS={5000} /></span>
+	<Config {engine} {onResize} bind:frameSize={maxFrameSize} bind:frameMode>
+		<span slot="fps"><FPS bind:this={fps} /></span>
+		<span slot="ips"><FPS bind:this={ips} average={5} /></span>
 	</Config>
 {/if}
 <div class="draw-region" bind:this={drawRegion}>
@@ -163,6 +167,7 @@
 		display: flex;
 		position: relative;
 		margin: 0;
+		background-color: lightgray;
 	}
 	:global(body.grabbing) {
 		cursor: grabbing !important;

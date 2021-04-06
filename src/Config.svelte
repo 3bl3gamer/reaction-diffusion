@@ -9,8 +9,32 @@
 	export let engine: ReactionDiffusion
 	export let frameSize: number
 	export let frameMode: FrameMode = 'darken'
+	export let onResize: () => void
 
 	const e = () => engine //hiding engine (and it's methods) from reactivity
+
+	$: fieldIsRect = e().getSize()[0] === e().getSize()[1]
+	$: maxFieldSizeExp = Math.floor(Math.log2(e().getMaxFieldSize()))
+	$: fieldWidth = e().getSize()[0]
+	$: fieldHeight = e().getSize()[1]
+	$: if (fieldIsRect && fieldHeight !== fieldWidth) {
+		fieldHeight = fieldWidth
+		engine.resize(fieldWidth, fieldHeight)
+		onResize()
+	}
+	$: fieldWidthExp = Math.floor(Math.log2(fieldWidth))
+	$: fieldHeightExp = Math.floor(Math.log2(fieldHeight))
+	const onFieldWidthExpChange = e => {
+		fieldWidth = Math.pow(2, +e.currentTarget.value)
+		if (fieldIsRect) fieldHeight = fieldWidth
+		engine.resize(fieldWidth, fieldHeight)
+		onResize()
+	}
+	const onFieldHeightExpChange = e => {
+		fieldHeight = Math.pow(2, +e.currentTarget.value)
+		engine.resize(fieldWidth, fieldHeight)
+		onResize()
+	}
 
 	$: diffusionRateA = e().getCoefs().diffusionRateA
 	$: diffusionRateB = e().getCoefs().diffusionRateB
@@ -27,6 +51,10 @@
 <div class="cfg-wrap">
 	<div class="cfg-head">...</div>
 	<div class="cfg-scroll">
+		<fieldset>
+			<legend>Статус</legend>
+			<div><slot name="fps" /> FPS, <slot name="ips" /> итераций/с</div>
+		</fieldset>
 		<fieldset class="sim-cfg">
 			<legend>Симуляция</legend>
 			<div class="mask-label small">маска</div>
@@ -63,6 +91,32 @@
 				paddingTop="7px"
 			/>
 		</fieldset>
+		<fieldset class="size-cfg">
+			<legend>Размер</legend>
+			<div>
+				{#if !fieldIsRect}<div class="dir-icon">↔</div>{/if}<input
+					type="range"
+					min="5"
+					max={maxFieldSizeExp}
+					value={fieldWidthExp}
+					on:input={onFieldWidthExpChange}
+				/>
+				{fieldWidth}
+				<label><input type="checkbox" bind:checked={fieldIsRect} />квадрат</label>
+			</div>
+			{#if !fieldIsRect}
+				<div>
+					<div class="dir-icon">↕</div><input
+						type="range"
+						min="5"
+						max={maxFieldSizeExp}
+						value={fieldHeightExp}
+						on:input={onFieldHeightExpChange}
+					/>
+					{fieldHeight}
+				</div>
+			{/if}
+		</fieldset>
 		<fieldset class="frame-cfg">
 			<legend>Внешняя область</legend>
 			<div class="switches">
@@ -84,17 +138,20 @@
 				{frameSize}
 			</div>
 		</fieldset>
-		<div>speed: <slot name="fps" /></div>
 	</div>
 </div>
 
 <style>
+	fieldset legend {
+		font-family: sans-serif;
+	}
+
 	.cfg-wrap {
 		position: fixed;
 		left: 0;
 		top: 0;
 		max-height: 100vh;
-		background-color: rgba(255, 255, 255, 0.92);
+		background-color: rgba(255, 255, 255, 0.95);
 		transition: opacity 0.1s ease;
 		z-index: 1;
 		white-space: nowrap;
@@ -102,6 +159,7 @@
 		flex-direction: column;
 		transform: translateZ(0);
 		opacity: 0.95;
+		box-shadow: 1px 1px 8px black;
 	}
 	.cfg-wrap:hover {
 		opacity: 1;
@@ -159,14 +217,26 @@
 		top: -10px;
 	}
 
+	.size-cfg input[type="range"] {
+		width: 128px;
+	}
+	.dir-icon {
+		display: inline-block;
+		width: 16px;
+		text-align: center;
+	}
+
 	.frame-cfg .switches {
 		display: flex;
 		margin-bottom: 8px;
 	}
 	.frame-cfg .column:first-of-type {
-		margin-right: 40px;
+		margin-right: 24px;
 	}
 	.frame-cfg .column div {
 		margin-left: 12px;
+	}
+	.frame-cfg input[type="range"] {
+		width: 128px;
 	}
 </style>

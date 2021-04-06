@@ -39,4 +39,6 @@ export function resizeGfxTexture2d(
 	gfxTexture.bind(gl)
 	const { format, type } = gfxTexture
 	gl.texImage2D(gl.TEXTURE_2D, 0, format, width, height, 0, format, type, data)
+	gfxTexture.width = width
+	gfxTexture.height = height
 }
