@@ -122,7 +122,7 @@
 		<fieldset class="size-cfg">
 			<legend>Размер</legend>
 			<div>
-				{#if !fieldIsRect}<div class="dir-icon">↔</div>{/if}<input
+				{#if !fieldIsRect}<span class="dir-icon">↔</span>{/if}<input
 					type="range"
 					min="5"
 					max={maxFieldSizeExp}
@@ -134,8 +134,7 @@
 			</div>
 			{#if !fieldIsRect}
 				<div>
-					<div class="dir-icon">↕</div>
-					<input
+					<span class="dir-icon">↕</span><input
 						type="range"
 						min="5"
 						max={maxFieldSizeExp}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Coef, MaskGradient, MaskSolid } from './engine'
+	import { Coef, MaskCircle, MaskGradient, MaskSmoothCircle, MaskSolid } from './engine'
 	import type { Mask } from './engine'
 	import NumberInputExt from './NumberInputExt.svelte'
 
@@ -18,12 +18,14 @@
 	}
 
 	function maskName(mask: Mask) {
-		if (mask instanceof MaskSolid) return 'сплошная'
+		if (mask instanceof MaskSolid) return 'сплошная ■'
 		if (mask instanceof MaskGradient) {
 			const angle = Math.round(mask.getAngleDeg())
 			const label = angleArrows[angle] || angle.toFixed(0) + '°'
 			return `градиент ${label}`
 		}
+		if (mask instanceof MaskCircle) return 'круг ⬤\uFE0E'
+		if (mask instanceof MaskSmoothCircle) return 'пятно ☀'
 		return '???'
 	}
 

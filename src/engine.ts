@@ -54,6 +54,38 @@ export class MaskGradient {
 	}
 }
 
+export class MaskCircle {
+	getFSParts(suffix: string): FSParts {
+		const varName = 'uMaskCircle' + suffix
+		return {
+			declaration: `uniform vec2 ${varName};`,
+			usage: `mix(${varName}.x, ${varName}.y, 1.-step(0.245, dot(vTextureCoord-0.5, vTextureCoord-0.5)))`,
+		}
+	}
+	prepareFSUniforms(gl: WebGLRenderingContext, prog: GfxSharerProgram, suffix: string): FSPrepareFunc {
+		const uMaskGradient = mustGetGfxUniformLocation(gl, prog, `uMaskCircle${suffix}`)
+		return (valMin: number, valMax: number) => {
+			gl.uniform2f(uMaskGradient, valMin, valMax)
+		}
+	}
+}
+
+export class MaskSmoothCircle {
+	getFSParts(suffix: string): FSParts {
+		const varName = 'uMaskSmoothCircle' + suffix
+		return {
+			declaration: `uniform vec2 ${varName};`,
+			usage: `mix(${varName}.x, ${varName}.y, clamp(1.-length((vTextureCoord-0.5)*2.), 0., 1.))`,
+		}
+	}
+	prepareFSUniforms(gl: WebGLRenderingContext, prog: GfxSharerProgram, suffix: string): FSPrepareFunc {
+		const uMaskGradient = mustGetGfxUniformLocation(gl, prog, `uMaskSmoothCircle${suffix}`)
+		return (valMin: number, valMax: number) => {
+			gl.uniform2f(uMaskGradient, valMin, valMax)
+		}
+	}
+}
+
 export class Coef {
 	constructor(public minVal: number, public maxVal: number, public mask: Mask) {}
 }
@@ -220,6 +252,8 @@ export class ReactionDiffusion {
 			new MaskGradient((Math.PI * 3) / 2),
 			new MaskGradient(Math.PI / 4),
 			new MaskGradient((Math.PI * 7) / 4),
+			new MaskCircle(),
+			new MaskSmoothCircle(),
 		]
 
 		this.updateIterationData()
