@@ -98,22 +98,25 @@
 
 		resizeCanvas()
 
-		setTimeout(() => {
-			function step() {
-				requestAnimationFrame(step)
-				// setTimeout(step, 1000)
+		function step() {
+			requestAnimationFrame(step)
+			// setTimeout(step, 1000)
 
-				const n = 24
-				rd.iter(n)
-				ips && ips.frame(n)
-
-				rd.draw(frameMode === 'hidden' ? null : mainRegion)
-				fps && fps.frame()
-
-				// recorder.requestFrame()
+			const p = canvasDrawPoint
+			if (p !== null && p.upd < Date.now() - 250) {
+				rd.drawDot(...xy2canvas(p.x, p.y))
 			}
-			step()
-		}, 0)
+
+			const n = 24
+			rd.iter(n)
+			ips && ips.frame(n)
+
+			rd.draw(frameMode === 'hidden' ? null : mainRegion)
+			fps && fps.frame()
+
+			// recorder.requestFrame()
+		}
+		step()
 	})
 
 	function xy2canvas(x: number, y: number): [number, number] {
@@ -129,26 +132,27 @@
 			return [(x * cs - mainRegion.x) * rs, (y * cs - mainRegion.y) * rs]
 		}
 	}
+	let canvasDrawPoint: { x: number; y: number; upd: number } | null = null
 	onMount(() => {
-		let prevX = 0
-		let prevY = 0
 		const control = controlSingle({
 			startElem: drawRegion,
 			offsetElem: canvas,
 			callbacks: {
 				singleDown(e, id, x, y) {
-					prevX = x
-					prevY = y
+					canvasDrawPoint = { x, y, upd: Date.now() }
 					engine && engine.drawDot(...xy2canvas(x, y))
 					return true
 				},
 				singleMove(e, id, x, y) {
-					engine && engine.drawLine(...xy2canvas(prevX, prevY), ...xy2canvas(x, y))
-					prevX = x
-					prevY = y
+					const p = canvasDrawPoint!
+					engine && engine.drawLine(...xy2canvas(p.x, p.y), ...xy2canvas(x, y))
+					p.x = x
+					p.y = y
+					p.upd = Date.now()
 					return true
 				},
 				singleUp(e, id) {
+					canvasDrawPoint = null
 					return true
 				},
 			},

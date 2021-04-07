@@ -273,7 +273,7 @@ export class ReactionDiffusion {
 		const uColor = mustGetGfxUniformLocation(gl, progLine, 'uColor')
 		this.drawLineInner = makeSimpleDrawFunc(gl, this.rect, progLine, {
 			beforeDraw: (x0: number, y0: number, x1: number, y1: number) => {
-				const len = Math.sqrt((x1 - x0) ** 2 + (y0 - y1) ** 2) + 1
+				const len = Math.sqrt((x1 - x0) ** 2 + (y0 - y1) ** 2)
 				const dir = Math.atan2(y1 - y0, x1 - x0)
 				const mat = mat3.create()
 				mat3.translate(mat, mat, [0, 1])
@@ -281,10 +281,17 @@ export class ReactionDiffusion {
 				mat3.translate(mat, mat, [x0 / this.width, y0 / this.height])
 				mat3.rotate(mat, mat, dir)
 				mat3.scale(mat, mat, [len / this.width, LINE_W / this.height])
+				mat3.translate(mat, mat, [0, -0.5])
 				gl.uniform4f(uColor, 0, 1, 0, 0)
 				gl.uniformMatrix3fv(uTransform, false, mat)
 			},
 		})
+
+		// this.drawLine(-32, 64, 64, -64)
+		// this.drawLine(64, 128, -32, -128)
+		// this.drawLine(128, 64, 64, 256)
+		// this.drawLine(-16, 32, 16, 32)
+		// this.drawLine(32, -16, 32, 16)
 	}
 
 	iter(n: number): void {
@@ -386,12 +393,51 @@ export class ReactionDiffusion {
 		this.height = height
 	}
 	drawDot(x: number, y: number): void {
-		setRenderTarget(this.gl, this.curFB)
-		this.drawLineInner(x - LINE_W / 2, y, x + LINE_W / 2, y)
+		this.drawLine(x - LINE_W / 2, y, x + LINE_W / 2, y)
 	}
 	drawLine(x0: number, y0: number, x1: number, y1: number): void {
+		// console.log(' --- ')
 		setRenderTarget(this.gl, this.curFB)
 		this.drawLineInner(x0, y0, x1, y1)
+		// from left to right only
+		if (x0 > x1) {
+			;[x0, x1] = [x1, x0]
+			;[y0, y1] = [y1, y0]
+		}
+		if (x0 === x1) x1 += 0.001
+		const aspect = (y1 - y0) / (x1 - x0)
+		let curX = x0
+		let curY = y0
+		let cellI = Math.floor(x0 / this.width)
+		let cellJ = Math.floor(y0 / this.height)
+		let n = 0
+		while (curX < x1) {
+			const cellX = cellI * this.width
+			const cellY = cellJ * this.height
+			this.drawLineInner(x0 - cellX, y0 - cellY, x1 - cellX, y1 - cellY)
+			const newY = curY + (cellX + this.width - curX) * aspect
+			// console.log([cellI, cellJ], [cellX, cellY], [curX, curY], newY)
+			if (newY < cellY) {
+				// to upper cell (via upper border)
+				curX += (curY - cellY) / -aspect
+				curY = cellY
+				cellJ -= 1
+			} else if (newY > cellY + this.height) {
+				// to bottom cell (via bottom border)
+				curX += (cellY + this.height - curY) / aspect
+				curY = cellY + this.height
+				cellJ += 1
+			} else {
+				// to right cell (via right border)
+				curX = cellX + this.width
+				curY = newY
+				cellI += 1
+			}
+			if (n++ > 10) {
+				console.error('drawLine looped too much!')
+				break
+			}
+		}
 	}
 
 	getMaxFieldSize(): number {
@@ -421,6 +467,7 @@ export class ReactionDiffusion {
 	}
 }
 
+// https://stackoverflow.com/questions/58907270/record-at-constant-fps-with-canvascapturemediastream-even-on-slow-computers
 export function setupRecorder(
 	canvas: HTMLCanvasElement,
 ): { start(): void; stop(): void; requestFrame(): void } {
