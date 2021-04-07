@@ -91,6 +91,7 @@
 		console.log(gl.getParameter(gl.MAX_TEXTURE_SIZE))
 
 		const rd = new ReactionDiffusion(gl, 512, 512)
+		for (let i = 0; i < 200; i++) rd.drawDot(512 * Math.random(), 512 * Math.random())
 		engine = rd
 		frameMode = engine.isFrameVisible() ? 'darken' : 'visible'
 		// const recorder = setupRecorder(canvas)

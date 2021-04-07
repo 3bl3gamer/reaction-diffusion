@@ -74,7 +74,6 @@ export function assertShaderIsOk(gl: WebGLRenderingContext, shader: WebGLShader)
 	if (msg !== '' && msg !== null) throw new Error(msg)
 }
 export function assertProgramIsOk(gl: WebGLRenderingContext, program: WebGLProgram): void {
-	// if (!gl.getProgramParameter(program, gl.LINK_STATUS))
-	const msg = gl.getProgramInfoLog(program)
-	if (msg !== '' && msg !== null) throw new Error(msg)
+	if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+		throw new Error('linkig failed: ' + gl.getProgramInfoLog(program))
 }

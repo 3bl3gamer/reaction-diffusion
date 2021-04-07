@@ -46,6 +46,34 @@
 	$: wrapMode = e().getWrapMode()
 
 	$: e().toggleFrame(frameMode === 'darken')
+
+	function drawVertLines(n: number) {
+		const [w, h] = engine.getSize()
+		const step = 24
+		for (let i = 0; i < n; i++) {
+			const x = w / 2 + (i - (n - 1) / 2) * step
+			engine.drawLine(x, 0, x, h)
+		}
+	}
+	function drawOneDot() {
+		const [w, h] = engine.getSize()
+		engine.drawDot(w / 2, h / 2)
+	}
+	function drawThreeDots() {
+		const [w, h] = engine.getSize()
+		const n = 3
+		for (let i = 0; i < n; i++) {
+			const a = (i / n) * 2 * Math.PI - Math.PI / 2
+			engine.drawDot(w / 2 + (w / 8) * Math.cos(a), h / 2 + (h / 8) * Math.sin(a))
+		}
+	}
+	function drawRandomDots() {
+		const [w, h] = engine.getSize()
+		const n = Math.max(5, Math.round((w * h) / 50 / 50))
+		for (let i = 0; i < n; i++) {
+			engine.drawDot(w * Math.random(), h * Math.random())
+		}
+	}
 </script>
 
 <div class="cfg-wrap">
@@ -106,7 +134,8 @@
 			</div>
 			{#if !fieldIsRect}
 				<div>
-					<div class="dir-icon">↕</div><input
+					<div class="dir-icon">↕</div>
+					<input
 						type="range"
 						min="5"
 						max={maxFieldSizeExp}
@@ -116,6 +145,21 @@
 					{fieldHeight}
 				</div>
 			{/if}
+		</fieldset>
+		<fieldset class="draw-cfg">
+			<legend>Рисование</legend>
+			<button on:click={() => engine.clear()}>♻️</button>&nbsp;
+			<button on:click={() => drawVertLines(1)}>|</button>
+			<button on:click={() => drawVertLines(2)}>||</button>
+			<button on:click={() => drawVertLines(3)}>|||</button>&nbsp;
+			<button on:click={drawOneDot}>•</button>
+			<button on:click={drawThreeDots}>
+				<div style="margin:0 -2px 0 -2px; transform:translateY(-2px)">𐬽</div>
+			</button>
+			<button on:click={drawRandomDots} style="position:relative">
+				<div style="margin:0 -3px 0 -2px">𐬽</div>
+				<div style="position:absolute;left:-3px;top:-3px">𐬼</div>
+			</button>
 		</fieldset>
 		<fieldset class="frame-cfg">
 			<legend>Внешняя область</legend>
@@ -217,13 +261,25 @@
 		top: -10px;
 	}
 
-	.size-cfg input[type="range"] {
+	.size-cfg input[type='range'] {
 		width: 128px;
 	}
 	.dir-icon {
 		display: inline-block;
 		width: 16px;
 		text-align: center;
+	}
+
+	@supports (-moz-appearance: none) {
+		.draw-cfg button {
+			padding: 0;
+		}
+	}
+	.draw-cfg button {
+		line-height: 18px;
+	}
+	.draw-cfg button.active {
+		box-shadow: 0 0 3px green;
 	}
 
 	.frame-cfg .switches {
@@ -236,7 +292,7 @@
 	.frame-cfg .column div {
 		margin-left: 12px;
 	}
-	.frame-cfg input[type="range"] {
+	.frame-cfg input[type='range'] {
 		width: 128px;
 	}
 </style>

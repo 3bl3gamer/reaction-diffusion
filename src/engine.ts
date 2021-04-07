@@ -6,7 +6,7 @@ import {
 	GfxSharerProgram,
 	mustGetGfxUniformLocation,
 } from './gfx/shaders'
-import { createGfxTexture2d, GfxTexture2d, resizeGfxTexture2d } from './gfx/textures'
+import { createGfxTexture2d, resizeGfxTexture2d } from './gfx/textures'
 import { makeSimpleDrawFunc, setRenderTarget } from './gfx/utils'
 import { mat3 } from 'gl-matrix'
 
@@ -79,19 +79,6 @@ function makeFieldTexture(gl: WebGLRenderingContext, w: number, h: number) {
 	return tex
 }
 
-const dot = (() => {
-	const width = 5
-	const offset = (width - 1) / 2
-	const buf = new Float32Array(4 * width * width)
-	for (let i = 0; i < buf.length; i++) buf[i + 1] = 1
-	return { width, offset, buf }
-})()
-function addDot(gl: WebGLRenderingContext, tex: GfxTexture2d, x: number, y: number): void {
-	tex.bind(gl)
-	const w = dot.width
-	gl.texSubImage2D(gl.TEXTURE_2D, 0, x - dot.offset, y - dot.offset, w, w, gl.RGBA, gl.FLOAT, dot.buf)
-}
-
 const simpleTextureVS = `
 precision highp float;
 
@@ -153,8 +140,8 @@ uniform lowp int uFrameVisible;
 void main(void) {
 	vec2 pos = vTextureCoord*uSize + uOffset;
 	vec2 col = texture2D(uSampler, pos).xy;
-	float c = clamp((col.x - col.y)*2., 0., 1.);//(col.x-0.4)*4.;
-	// float isIn = pos.x >= 0. && pos.y >= 0. && pos.x < 1. && pos.y < 1. ? 1. : 0.7;
+	float c = clamp((col.x - col.y*1.5)*4., 0., 1.);//(col.x-0.4)*4.;
+
 	vec2 innerRect = step(0., pos) * step(-1., -pos);
 	vec2 outerRect = step(-0.005, pos) * step(-1.005, -pos);
 	float isIn = uFrameVisible > 0
@@ -189,7 +176,7 @@ uniform vec4 uColor;
 void main(void) {
 	gl_FragColor = uColor;
 }`
-const LINE_W = 5
+const LINE_W = 3
 
 export class ReactionDiffusion {
 	private curFB: GfxFramebuffer
@@ -214,16 +201,7 @@ export class ReactionDiffusion {
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
 		this.curFB = createGfxFramebuffer(gl, makeFieldTexture(gl, width, height))
 		this.nextFB = createGfxFramebuffer(gl, makeFieldTexture(gl, width, height))
-		gl.clearColor(1, 0, 0, 0)
-		for (const fb of [this.curFB, this.nextFB]) {
-			fb.bind(gl)
-			gl.clear(gl.COLOR_BUFFER_BIT)
-		}
-		for (let i = 0; i < 200; i++) {
-			const x = (width * (0.5 + (Math.random() - 0.5) * 0.9)) | 0
-			const y = (height * (0.5 + (Math.random() - 0.5) * 0.9)) | 0
-			addDot(gl, this.curFB.gfxTex, x, y)
-		}
+		this.clear()
 		// this.coefsFB = createGfxFramebuffer(gl, makeFieldTexture(gl, 2, 2))
 
 		const rectVtx = [0,0, 0,1, 1,1, 1,1, 1,0, 0,0] //prettier-ignore
@@ -391,6 +369,14 @@ export class ReactionDiffusion {
 
 		this.width = width
 		this.height = height
+	}
+	clear(): void {
+		const gl = this.gl
+		gl.clearColor(1, 0, 0, 0)
+		for (const fb of [this.curFB, this.nextFB]) {
+			fb.bind(gl)
+			gl.clear(gl.COLOR_BUFFER_BIT)
+		}
 	}
 	drawDot(x: number, y: number): void {
 		this.drawLine(x - LINE_W / 2, y, x + LINE_W / 2, y)
