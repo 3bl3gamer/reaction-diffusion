@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte'
+	import { afterUpdate, onMount } from 'svelte'
 	import Config from './Config.svelte'
 	import type { FrameMode } from './Config.svelte'
 	import { ReactionDiffusion, setupRecorder } from './engine'
@@ -12,11 +12,19 @@
 	let canvas: HTMLCanvasElement
 	let engine: ReactionDiffusion | null = null
 	let frameMode: FrameMode = 'darken'
+	let sidebarWrapElem: HTMLDivElement | null = null
 
 	const mainRegion = { x: 0, y: 0, width: 1, height: 1 }
 
 	let maxFrameSize = 0.2
-	$: if (maxFrameSize === maxFrameSize && frameMode) resizeCanvas()
+	$: if (maxFrameSize === maxFrameSize && frameMode && sidebarWrapElem) resizeCanvas()
+
+	let sidebarIsShown = true
+	let sidebarIsShownPrev = sidebarIsShown
+	afterUpdate(() => {
+		if (sidebarIsShownPrev !== sidebarIsShown) resizeCanvas()
+		sidebarIsShownPrev = sidebarIsShown
+	})
 
 	function resizeCanvas() {
 		if (engine === null) return
@@ -50,12 +58,15 @@
 			}
 		}
 
+		const sidebarWidth = sidebarWrapElem ? sidebarWrapElem.getBoundingClientRect().width : 0
+		const sideShift = (sidebarWidth / rect.width) * fullViewWidth
 		const scale = Math.min(fullViewWidth / enWidth, fullViewHeight / enHeight)
-		const s = scale / (1 + maxFrameSize * 2)
-		mainRegion.x = Math.floor((fullViewWidth - enWidth * s) / 2)
-		mainRegion.y = Math.floor((fullViewHeight - enHeight * s) / 2)
-		mainRegion.width = enWidth * s
-		mainRegion.height = enHeight * s
+		const scaleWithBorder = scale / (1 + maxFrameSize * 2)
+		mainRegion.x = Math.floor((fullViewWidth - enWidth * scaleWithBorder + sideShift) / 2)
+		mainRegion.x = Math.min(mainRegion.x, Math.floor(fullViewWidth - enWidth * scaleWithBorder))
+		mainRegion.y = Math.floor((fullViewHeight - enHeight * scaleWithBorder) / 2)
+		mainRegion.width = enWidth * scaleWithBorder
+		mainRegion.height = enHeight * scaleWithBorder
 
 		if (frameMode === 'hidden') {
 			canvas.width = enWidth
@@ -82,13 +93,6 @@
 		// // TODO: warn but continue
 		// const glTFloatLinearExt = gl.getExtension('OES_texture_float_linear')
 		// if (!glTFloatLinearExt) return alert('OES_texture_float_linear is not supported')
-
-		// console.log(gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.LOW_FLOAT))
-		// console.log(gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT))
-		// console.log(gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT))
-
-		console.log(gl.getParameter(gl.SHADING_LANGUAGE_VERSION))
-		console.log(gl.getParameter(gl.MAX_TEXTURE_SIZE))
 
 		const rd = new ReactionDiffusion(gl, 512, 512)
 		for (let i = 0; i < 200; i++) rd.drawDot(512 * Math.random(), 512 * Math.random())
@@ -177,7 +181,14 @@
 <svelte:window on:resize={onResize} />
 
 {#if engine}
-	<Config {engine} {onResize} bind:frameSize={maxFrameSize} bind:frameMode>
+	<Config
+		bind:wrapElem={sidebarWrapElem}
+		bind:isShown={sidebarIsShown}
+		{engine}
+		{onResize}
+		bind:frameSize={maxFrameSize}
+		bind:frameMode
+	>
 		<span slot="fps"><FPS bind:this={fps} /></span>
 		<span slot="ips"><FPS bind:this={ips} average={5} /></span>
 	</Config>

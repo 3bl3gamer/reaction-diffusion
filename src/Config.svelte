@@ -10,6 +10,8 @@
 	export let frameSize: number
 	export let frameMode: FrameMode = 'darken'
 	export let onResize: () => void
+	export let wrapElem: HTMLDivElement
+	export let isShown = true
 
 	const e = () => engine //hiding engine (and it's methods) from reactivity
 
@@ -47,6 +49,10 @@
 
 	$: e().toggleFrame(frameMode === 'darken')
 
+	function onKeyDown(e: KeyboardEvent) {
+		if (e.key === 'Escape') isShown = !isShown
+	}
+
 	function drawVertLines(n: number) {
 		const [w, h] = engine.getSize()
 		const step = 24
@@ -76,8 +82,16 @@
 	}
 </script>
 
-<div class="cfg-wrap">
-	<div class="cfg-head">...</div>
+<svelte:window on:keydown={onKeyDown} />
+
+<div class="cfg-wrap" class:minimized={!isShown} bind:this={wrapElem}>
+	<div class="cfg-head">
+		{#if isShown}
+			<button class="link-like" on:click={() => (isShown = false)}>&lt;&lt; скрыть (esc)</button>
+		{:else}
+			<button class="link-like" on:click={() => (isShown = true)}>&gt;&gt;</button>
+		{/if}
+	</div>
 	<div class="cfg-scroll">
 		<fieldset>
 			<legend>Статус</legend>
@@ -188,6 +202,14 @@
 	fieldset legend {
 		font-family: sans-serif;
 	}
+	button.link-like {
+		border: none;
+		background: none;
+		color: #00e;
+		cursor: pointer;
+		font-family: Cantarell;
+		font-size: 16px;
+	}
 
 	.cfg-wrap {
 		position: fixed;
@@ -208,6 +230,15 @@
 		opacity: 1;
 	}
 
+	.cfg-wrap.minimized {
+		background: none;
+		width: 0;
+		text-shadow: 0px 0px 2px white;
+	}
+	.cfg-wrap.minimized .cfg-scroll {
+		display: none;
+	}
+
 	.cfg-head {
 		padding: 5px 10px 5px 5px;
 	}
@@ -217,11 +248,11 @@
 		overflow-y: scroll;
 		overflow-x: hidden;
 		scrollbar-width: thin;
-		scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+		scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 		transition: scrollbar-color 0.1s ease;
 	}
 	.cfg-scroll:hover {
-		scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+		scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
 	}
 	.cfg-scroll::-webkit-scrollbar {
 		width: 6px;
@@ -230,11 +261,11 @@
 		background-color: transparent;
 	}
 	.cfg-scroll::-webkit-scrollbar-thumb {
-		background-color: rgba(255, 255, 255, 0.1);
+		background-color: rgba(0, 0, 0, 0.2);
 		/* not working transition: background-color 0.1s ease; */
 	}
 	.cfg-scroll:hover::-webkit-scrollbar-thumb {
-		background-color: rgba(255, 255, 255, 0.3);
+		background-color: rgba(0, 0, 0, 0.3);
 	}
 
 	fieldset {
@@ -277,9 +308,9 @@
 	.draw-cfg button {
 		line-height: 18px;
 	}
-	.draw-cfg button.active {
+	/* .draw-cfg button.active {
 		box-shadow: 0 0 3px green;
-	}
+	} */
 
 	.frame-cfg .switches {
 		display: flex;
