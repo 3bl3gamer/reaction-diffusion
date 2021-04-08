@@ -15,7 +15,7 @@
 		"@rollup/plugin-typescript": "^8.0.0",
 		"@tsconfig/svelte": "^1.0.0",
 		"gl-matrix": "^3.3.0",
-		"js-control": "git+https://github.com/3bl3gamer/js-control.git#semver:^1.0.0",
+		"js-control": "git+https://github.com/3bl3gamer/js-control.git#semver:^1.1.0",
 		"rollup": "^2.3.4",
 		"rollup-plugin-css-only": "^3.1.0",
 		"rollup-plugin-livereload": "^2.0.0",
