@@ -29,6 +29,10 @@
 		return '???'
 	}
 
+	function flipRange() {
+		;[coef.minVal, coef.maxVal] = [coef.maxVal, coef.minVal]
+	}
+
 	function onMinValChange(value: number) {
 		coef.minVal = value
 	}
@@ -57,16 +61,19 @@
 	</div>
 	<br />
 	{#if needMinValueFor(coef.mask)}
-		<NumberInputExt value={coef.minVal} onChange={onMinValChange} {slideStep} /> —
+		<NumberInputExt value={coef.minVal} onChange={onMinValChange} {slideStep} />
+		<button class="swap-button" on:click={flipRange}><div>⇄</div></button>
 	{/if}
 	<NumberInputExt value={coef.maxVal} onChange={onMaxValChange} {slideStep} />
 </div>
 
-<!-- <style>
-	.wrap {
-		margin-top: 4px;
+<style>
+	@supports (-moz-appearance: none) {
+		.wrap .swap-button {
+			padding: 0;
+		}
 	}
-	.wrap:not(:last-child) {
-		margin-bottom: 6px;
+	.wrap .swap-button div {
+		margin: -4px -7px;
 	}
-</style> -->
+</style>
