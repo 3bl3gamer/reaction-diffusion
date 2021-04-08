@@ -217,7 +217,8 @@ export class ReactionDiffusion {
 	private curFB: GfxFramebuffer
 	private nextFB: GfxFramebuffer
 	// private coefsFB: GfxFramebuffer
-	private textureType: number
+	private fieldTextureType: number
+	private fieldTextureMinFilter: number
 	private rect: GfxBuffer
 
 	private coefs: Coefs
@@ -235,7 +236,7 @@ export class ReactionDiffusion {
 	private drawLineInner: (x0: number, y0: number, x1: number, y1: number) => void
 
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
-		this.textureType = (() => {
+		this.fieldTextureType = (() => {
 			const glTFloatExt = gl.getExtension('OES_texture_float')
 			const glCBFloatExt = gl.getExtension('WEBGL_color_buffer_float')
 			if (glTFloatExt && glCBFloatExt) return gl.FLOAT
@@ -243,6 +244,12 @@ export class ReactionDiffusion {
 			const glCBHalfFloatExt = gl.getExtension('EXT_color_buffer_half_float')
 			if (glTHalfFloatExt && glCBHalfFloatExt) return glTHalfFloatExt.HALF_FLOAT_OES
 			throw new Error('девайс/браузер не поддерживает достаточную точность вычислений на видеокарте')
+		})()
+		this.fieldTextureMinFilter = (() => {
+			const name = this.isHighpSupported()
+				? 'OES_texture_float_linear'
+				: 'OES_texture_half_float_linear'
+			return gl.getExtension(name) ? gl.LINEAR : gl.NEAREST
 		})()
 
 		// // TODO: warn but continue
@@ -327,11 +334,11 @@ export class ReactionDiffusion {
 
 	private makeFieldTexture(w: number, h: number) {
 		const gl = this.gl
-		const tex = createGfxTexture2d(gl, w, h, gl.RGBA, this.textureType, null)
+		const tex = createGfxTexture2d(gl, w, h, gl.RGBA, this.fieldTextureType, null)
 		// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT) //CLAMP_TO_EDGE
 		// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT) //CLAMP_TO_EDGE
 		// min and mag are required for float tex
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this.fieldTextureMinFilter)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 		return tex
 	}
@@ -489,7 +496,7 @@ export class ReactionDiffusion {
 	}
 
 	isHighpSupported(): boolean {
-		return this.textureType === this.gl.FLOAT
+		return this.fieldTextureType === this.gl.FLOAT
 	}
 
 	getMaxFieldSize(): number {
