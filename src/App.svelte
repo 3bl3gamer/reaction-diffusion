@@ -237,4 +237,8 @@
 	:global(input[type='range']) {
 		vertical-align: middle;
 	}
+	:global(h1) {
+		font-size: 110%;
+		font-weight: normal;
+	}
 </style>

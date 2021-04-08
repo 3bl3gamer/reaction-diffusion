@@ -3,9 +3,8 @@
 </script>
 
 <script lang="ts">
-	import { each } from 'svelte/internal'
 	import CoefInput from './CoefInput.svelte'
-	import { Coef, MaskGradient, MaskSmoothCircle, MaskSolid, ReactionDiffusion } from './engine'
+	import { MaskGradient, MaskSmoothCircle, MaskSolid, ReactionDiffusion } from './engine'
 
 	export let engine: ReactionDiffusion
 	export let frameSize: number
@@ -111,6 +110,17 @@
 			feedRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
 			drawOneDot()
 		},
+		'дерево в рамке'() {
+			diffusionRateA.minVal = diffusionRateA.maxVal = 0.9344339479362163
+			diffusionRateB.minVal = 0.6366397881990161
+			diffusionRateB.maxVal = 0.4177794651597456
+			diffusionRateB.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 315)
+			feedRate.minVal = 0.0847265052049363
+			feedRate.maxVal = 0.014681911230716192
+			feedRate.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 315)
+			killRate.minVal = killRate.maxVal = 0.061886156571588954
+			drawVertLines(1)
+		},
 		'карта kill/feed'() {
 			feedRate.minVal = 0.01 //- 0.007
 			feedRate.maxVal = 0.1 //+ 0.03
@@ -118,7 +128,6 @@
 			killRate.minVal = 0.045 //- 0.01
 			killRate.maxVal = 0.07 //+ 0.01
 			killRate.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 270)
-			// timeDelta.minVal = timeDelta.maxVal = 0.5
 			wrapMode = 'mirror'
 			for (let i = 0; i < 10; i++) drawRandomDots()
 		},
@@ -129,10 +138,38 @@
 			diffusionRateB.minVal = 0.1
 			diffusionRateB.maxVal = 0.6
 			diffusionRateB.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 270)
-			// timeDelta.minVal = timeDelta.maxVal = 0.5
 			wrapMode = 'mirror'
 			for (let i = 0; i < 10; i++) drawRandomDots()
 		},
+	}
+	function random() {
+		preset(() => {
+			const limits: Record<string, [number, number]> = {
+				diffusionRateA: [0.2, 1],
+				diffusionRateB: [0.1, 0.8],
+				feedRate: [0.005, 0.12],
+				killRate: [0.035, 0.07],
+				timeDelta: [0.8, 1],
+			}
+			const masks = engine.getMasks()
+			const maskSolid = masks.find(x => x instanceof MaskSolid)!
+			for (const [name, coef] of Object.entries(engine.getCoefs())) {
+				const mask = Math.random() > 0.8 ? maskSolid : masks[(Math.random() * masks.length) | 0]
+				coef.mask = mask
+				const [min, max] = limits[name]
+				coef.maxVal = min + Math.random() * (max - min)
+				coef.minVal = mask === maskSolid ? coef.maxVal : min + Math.random() * (max - min)
+			}
+			if (Math.random() < 0.25) {
+				drawVertLines((1 + Math.random() * 3.999) | 0)
+			} else if (Math.random() < 0.333) {
+				drawOneDot()
+			} else if (Math.random() < 0.5) {
+				drawThreeDots()
+			} else {
+				drawRandomDots()
+			}
+		})
 	}
 </script>
 
@@ -147,8 +184,12 @@
 		{/if}
 	</div>
 	<div class="cfg-scroll">
-		<fieldset>
+		<div class="info-block">
+			<h1>Reaction-Diffusion</h1>
+		</div>
+		<fieldset class="cfg-presets">
 			<legend>Пресеты</legend>
+			<button class="link-like random" on:click={random}>случайно</button><br />
 			{#each Object.entries(presetFuncs) as [name, func]}
 				<button class="link-like" on:click={() => preset(func)}>{name}</button><br />
 			{/each}
@@ -347,6 +388,11 @@
 		background-color: rgba(0, 0, 0, 0.3);
 	}
 
+	.info-block {
+		margin-left: 14px;
+		font-family: sans-serif;
+	}
+
 	fieldset {
 		border: 2px solid darkgray;
 		border-radius: 4px;
@@ -360,6 +406,11 @@
 		padding-bottom: 0;
 		padding-top: 0;
 	} */
+
+	.cfg-presets .random {
+		color: firebrick;
+		text-shadow: 0 0 3px rgba(255, 0, 0, 0.3);
+	}
 
 	.sim-cfg {
 		position: relative;
