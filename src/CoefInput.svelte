@@ -53,7 +53,7 @@
 	<b>{label}</b>
 	<div style="float:right">
 		<!-- svelte-ignore a11y-no-onchange -->
-		<select value={coef.mask} on:change={onMaskChangeInner}>
+		<select value={masks.findIndex(x => x === coef.mask)} on:change={onMaskChangeInner}>
 			{#each masks as m, i}
 				<option value={i}>{maskName(m)}</option>
 			{/each}

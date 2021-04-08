@@ -3,8 +3,9 @@
 </script>
 
 <script lang="ts">
+	import { each } from 'svelte/internal'
 	import CoefInput from './CoefInput.svelte'
-	import type { ReactionDiffusion } from './engine'
+	import { Coef, MaskGradient, MaskSmoothCircle, MaskSolid, ReactionDiffusion } from './engine'
 
 	export let engine: ReactionDiffusion
 	export let frameSize: number
@@ -13,7 +14,7 @@
 	export let wrapElem: HTMLDivElement
 	export let isShown = true
 
-	const e = () => engine //hiding engine (and it's methods) from reactivity
+	let e = () => engine //hiding engine (and it's methods) from reactivity
 
 	$: fieldIsRect = e().getSize()[0] === e().getSize()[1]
 	$: maxFieldSizeExp = Math.floor(Math.log2(e().getMaxFieldSize()))
@@ -81,6 +82,58 @@
 			engine.drawDot(w * Math.random(), h * Math.random())
 		}
 	}
+
+	function mustFundMask(func) {
+		const mask = engine.getMasks().find(func)
+		if (!mask) throw new Error('mask not found')
+		return mask
+	}
+	function preset(func) {
+		const coefs = engine.getCoefs()
+
+		for (const name in coefs) coefs[name].mask = engine.getMasks().find(x => x instanceof MaskSolid)
+
+		diffusionRateA.minVal = diffusionRateA.maxVal = 1
+		diffusionRateB.minVal = diffusionRateB.maxVal = 0.5
+		feedRate.minVal = feedRate.maxVal = 0.055
+		killRate.minVal = killRate.maxVal = 0.062
+		timeDelta.minVal = timeDelta.maxVal = 1
+
+		wrapMode = 'repeat'
+		engine.clear()
+		func()
+		engine.updateIterationData()
+	}
+	const presetFuncs = {
+		'рождение Вселенной'() {
+			feedRate.minVal = 0.018
+			feedRate.maxVal = 0.055
+			feedRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			drawOneDot()
+		},
+		'карта kill/feed'() {
+			feedRate.minVal = 0.01 //- 0.007
+			feedRate.maxVal = 0.1 //+ 0.03
+			feedRate.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 0)
+			killRate.minVal = 0.045 //- 0.01
+			killRate.maxVal = 0.07 //+ 0.01
+			killRate.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 270)
+			// timeDelta.minVal = timeDelta.maxVal = 0.5
+			wrapMode = 'mirror'
+			for (let i = 0; i < 10; i++) drawRandomDots()
+		},
+		'карта диффузий'() {
+			diffusionRateA.minVal = 0.3
+			diffusionRateA.maxVal = 1
+			diffusionRateA.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 0)
+			diffusionRateB.minVal = 0.1
+			diffusionRateB.maxVal = 0.6
+			diffusionRateB.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 270)
+			// timeDelta.minVal = timeDelta.maxVal = 0.5
+			wrapMode = 'mirror'
+			for (let i = 0; i < 10; i++) drawRandomDots()
+		},
+	}
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
@@ -94,6 +147,12 @@
 		{/if}
 	</div>
 	<div class="cfg-scroll">
+		<fieldset>
+			<legend>Пресеты</legend>
+			{#each Object.entries(presetFuncs) as [name, func]}
+				<button class="link-like" on:click={() => preset(func)}>{name}</button><br />
+			{/each}
+		</fieldset>
 		<fieldset>
 			<legend>Статус</legend>
 			<div><slot name="fps" /> FPS, <slot name="ips" /> итераций/с</div>
@@ -188,6 +247,7 @@
 				<div style="margin:0 -3px 0 -2px">𐬽</div>
 				<div style="position:absolute;left:-3px;top:-3px">𐬼</div>
 			</button>
+			<div class="dim small" style="text-align:center">а так же — мышкой/пальцем</div>
 		</fieldset>
 		<fieldset class="frame-cfg">
 			<legend>Внешняя область</legend>

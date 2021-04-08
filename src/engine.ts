@@ -263,10 +263,7 @@ export class ReactionDiffusion {
 			diffusionRateB: new Coef(0.5, 0.5, maskSolid),
 			feedRate: new Coef(0.055, 0.055, maskSolid),
 			killRate: new Coef(0.062, 0.062, maskSolid),
-			timeDelta: (() => {
-				const td = this.isHighpSupported() ? 0.5 : 1
-				return new Coef(td, td, maskSolid)
-			})(),
+			timeDelta: new Coef(1, 1, maskSolid),
 		}
 		this.masks = [
 			maskSolid,
