@@ -84,20 +84,15 @@
 		const gl = canvas.getContext('webgl', { antialias: true, depth: false, alpha: false, stencil: false })
 		if (gl === null) return alert('webgl not available')
 
-		const glTFloatExt = gl.getExtension('OES_texture_float')
-		if (!glTFloatExt) return alert('OES_texture_float is not supported')
-
-		const glCBFloatExt = gl.getExtension('WEBGL_color_buffer_float')
-		if (!glCBFloatExt) return alert('WEBGL_color_buffer_float is not supported')
-
-		// // TODO: warn but continue
-		// const glTFloatLinearExt = gl.getExtension('OES_texture_float_linear')
-		// if (!glTFloatLinearExt) return alert('OES_texture_float_linear is not supported')
-
-		const rd = new ReactionDiffusion(gl, 512, 512)
+		try {
+			engine = new ReactionDiffusion(gl, 512, 512)
+		} catch (ex) {
+			alert(ex + '')
+			return
+		}
+		const rd = engine
 		for (let i = 0; i < 200; i++) rd.drawDot(512 * Math.random(), 512 * Math.random())
-		engine = rd
-		frameMode = engine.isFrameVisible() ? 'darken' : 'visible'
+		frameMode = rd.isFrameVisible() ? 'darken' : 'visible'
 		// const recorder = setupRecorder(canvas)
 		// window.recorder = recorder
 
@@ -235,6 +230,9 @@
 	}
 	:global(.small) {
 		font-size: 90%;
+	}
+	:global(.warn) {
+		background-color: #ff9;
 	}
 	:global(input[type='range']) {
 		vertical-align: middle;

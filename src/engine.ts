@@ -95,21 +95,19 @@ export type Coefs = {
 	diffusionRateB: Coef
 	feedRate: Coef
 	killRate: Coef
+	timeDelta: Coef
 }
 
 export type WrapMode = 'repeat' | 'mirror'
 
 export type View = { x: number; y: number; width: number; height: number }
 
-function makeFieldTexture(gl: WebGLRenderingContext, w: number, h: number) {
-	const tex = createGfxTexture2d(gl, w, h, gl.RGBA, gl.FLOAT, null)
-	// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT) //CLAMP_TO_EDGE
-	// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT) //CLAMP_TO_EDGE
-	// min and mag are required for float tex
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	return tex
-}
+const FS_FLOAT_HIGHP_OR_MEDIUMP = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif`
 
 const simpleTextureVS = `
 precision highp float;
@@ -121,13 +119,13 @@ void main(void) {
 	vTextureCoord = aPosition;
 	gl_Position = vec4((aPosition.xy-0.5)*2., 0, 1.);
 }`
+
 const iterationFSRaw = `
-precision highp float;
+${FS_FLOAT_HIGHP_OR_MEDIUMP}
 precision highp sampler2D;
 
 varying vec2 vTextureCoord;
 uniform sampler2D uSampler;
-uniform float uTimeDelta;
 uniform vec2 uScale;
 {{COEF_DECLARATIONS}}
 
@@ -137,6 +135,7 @@ void main(void) {
 	float diffusionRateB = {{diffusionRateB}};
 	float feedRate = {{feedRate}};
 	float killRate = {{killRate}};
+	float timeDelta = {{timeDelta}};
 
 	vec2 cur = texture2D(uSampler, vTextureCoord).xy;
 
@@ -155,13 +154,14 @@ void main(void) {
 
 	float a = cur.x;
 	float b = cur.y;
-	float newA = a + (diffusionRateA * lap.x - a * b * b + feedRate * (1. - a)) * uTimeDelta;
-	float newB = b + (diffusionRateB * lap.y + a * b * b - (killRate + feedRate) * b) * uTimeDelta;
+	float newA = a + (diffusionRateA * lap.x - a * b * b + feedRate * (1. - a)) * timeDelta;
+	float newB = b + (diffusionRateB * lap.y + a * b * b - (killRate + feedRate) * b) * timeDelta;
 
 	gl_FragColor = vec4(clamp(newA, 0., 1.), clamp(newB, 0., 1.), 0, 1.);
 }`
+
 const resultFS = `
-precision highp float;
+${FS_FLOAT_HIGHP_OR_MEDIUMP}
 
 varying vec2 vTextureCoord;
 uniform sampler2D uSampler;
@@ -182,8 +182,9 @@ void main(void) {
 	gl_FragColor = vec4(mix(vec3(0.5), vec3(c, c, c), isIn), 1.);
 	// gl_FragColor = vec4(c, 1.-col.y, col.x, 1.);
 }`
+
 const copyFS = `
-precision highp float;
+${FS_FLOAT_HIGHP_OR_MEDIUMP}
 
 varying vec2 vTextureCoord;
 uniform sampler2D uSampler;
@@ -191,6 +192,7 @@ uniform sampler2D uSampler;
 void main(void) {
 	gl_FragColor = texture2D(uSampler, vTextureCoord);
 }`
+
 const lineVS = `
 precision highp float;
 
@@ -200,8 +202,9 @@ uniform mat3 uTransform;
 void main(void) {
 	gl_Position = vec4(((uTransform*vec3(aPosition, 1.)).xy-0.5)*2., 0, 1.);
 }`
+
 const lineFS = `
-precision highp float;
+${FS_FLOAT_HIGHP_OR_MEDIUMP}
 
 uniform vec4 uColor;
 
@@ -214,6 +217,7 @@ export class ReactionDiffusion {
 	private curFB: GfxFramebuffer
 	private nextFB: GfxFramebuffer
 	// private coefsFB: GfxFramebuffer
+	private textureType: number
 	private rect: GfxBuffer
 
 	private coefs: Coefs
@@ -231,10 +235,24 @@ export class ReactionDiffusion {
 	private drawLineInner: (x0: number, y0: number, x1: number, y1: number) => void
 
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
-		this.curFB = createGfxFramebuffer(gl, makeFieldTexture(gl, width, height))
-		this.nextFB = createGfxFramebuffer(gl, makeFieldTexture(gl, width, height))
+		this.textureType = (() => {
+			const glTFloatExt = gl.getExtension('OES_texture_float')
+			const glCBFloatExt = gl.getExtension('WEBGL_color_buffer_float')
+			if (glTFloatExt && glCBFloatExt) return gl.FLOAT
+			const glTHalfFloatExt = gl.getExtension('OES_texture_half_float')
+			const glCBHalfFloatExt = gl.getExtension('EXT_color_buffer_half_float')
+			if (glTHalfFloatExt && glCBHalfFloatExt) return glTHalfFloatExt.HALF_FLOAT_OES
+			throw new Error('девайс/браузер не поддерживает достаточную точность вычислений на видеокарте')
+		})()
+
+		// // TODO: warn but continue
+		// const glTFloatLinearExt = gl.getExtension('OES_texture_float_linear')
+		// if (!glTFloatLinearExt) return alert('OES_texture_float_linear is not supported')
+
+		this.curFB = createGfxFramebuffer(gl, this.makeFieldTexture(width, height))
+		this.nextFB = createGfxFramebuffer(gl, this.makeFieldTexture(width, height))
 		this.clear()
-		// this.coefsFB = createGfxFramebuffer(gl, makeFieldTexture(gl, 2, 2))
+		// this.coefsFB = createGfxFramebuffer(gl, this.makeFieldTexture(gl, 2, 2))
 
 		const rectVtx = [0,0, 0,1, 1,1, 1,1, 1,0, 0,0] //prettier-ignore
 		this.rect = createGfxBuffer(gl, rectVtx, 2, gl.TRIANGLES)
@@ -245,6 +263,10 @@ export class ReactionDiffusion {
 			diffusionRateB: new Coef(0.5, 0.5, maskSolid),
 			feedRate: new Coef(0.055, 0.055, maskSolid),
 			killRate: new Coef(0.062, 0.062, maskSolid),
+			timeDelta: (() => {
+				const td = this.isHighpSupported() ? 0.5 : 1
+				return new Coef(td, td, maskSolid)
+			})(),
 		}
 		this.masks = [
 			maskSolid,
@@ -306,6 +328,17 @@ export class ReactionDiffusion {
 		// this.drawLine(32, -16, 32, 16)
 	}
 
+	private makeFieldTexture(w: number, h: number) {
+		const gl = this.gl
+		const tex = createGfxTexture2d(gl, w, h, gl.RGBA, this.textureType, null)
+		// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT) //CLAMP_TO_EDGE
+		// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT) //CLAMP_TO_EDGE
+		// min and mag are required for float tex
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+		return tex
+	}
+
 	iter(n: number): void {
 		const gl = this.gl
 
@@ -355,14 +388,12 @@ export class ReactionDiffusion {
 		const uScale = mustGetGfxUniformLocation(gl, prog, 'uScale')
 		const uSampler = mustGetGfxUniformLocation(gl, prog, 'uSampler')
 		const uSamplerCoefs = null
-		const uTimeDelta = mustGetGfxUniformLocation(gl, prog, 'uTimeDelta')
 
 		const draw = makeSimpleDrawFunc(gl, this.rect, prog, {
 			beforeDraw: () => {
 				gl.uniform2f(uScale, 1 / this.width, 1 / this.height)
 				gl.uniform1i(uSampler, 0)
 				if (uSamplerCoefs !== null) gl.uniform1i(uSamplerCoefs, 1)
-				gl.uniform1f(uTimeDelta, 0.5)
 				for (let i = 0; i < coefs.length; i++) {
 					const coef = coefs[i][1]
 					prepareFuncs[i](coef.minVal, coef.maxVal)
@@ -460,18 +491,24 @@ export class ReactionDiffusion {
 		}
 	}
 
+	isHighpSupported(): boolean {
+		return this.textureType === this.gl.FLOAT
+	}
+
 	getMaxFieldSize(): number {
 		return this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE)
 	}
+	getSize(): [number, number] {
+		return [this.width, this.height]
+	}
+
 	getCoefs(): Coefs {
 		return this.coefs
 	}
 	getMasks(): Mask[] {
 		return this.masks
 	}
-	getSize(): [number, number] {
-		return [this.width, this.height]
-	}
+
 	getWrapMode(): WrapMode {
 		return this.wrapMode
 	}
@@ -479,6 +516,7 @@ export class ReactionDiffusion {
 		this.wrapMode = wrapMode
 		this.updateTexWrapMode()
 	}
+
 	isFrameVisible(): boolean {
 		return this.frameIsVisible
 	}

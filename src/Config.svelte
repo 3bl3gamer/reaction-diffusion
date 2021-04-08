@@ -42,6 +42,7 @@
 	$: diffusionRateB = e().getCoefs().diffusionRateB
 	$: killRate = e().getCoefs().killRate
 	$: feedRate = e().getCoefs().feedRate
+	$: timeDelta = e().getCoefs().timeDelta
 	const onMaskChange = () => engine.updateIterationData()
 
 	$: e().setWrapMode(wrapMode)
@@ -96,6 +97,12 @@
 		<fieldset>
 			<legend>Статус</legend>
 			<div><slot name="fps" /> FPS, <slot name="ips" /> итераций/с</div>
+			{#if !engine.isHighpSupported()}
+				<div class="warn small wrap-words">
+					девайс/браузер не поддерживает высокую точность вычислений на видеокарте, симуляция будет
+					неточной
+				</div>
+			{/if}
 		</fieldset>
 		<fieldset class="sim-cfg">
 			<legend>Симуляция</legend>
@@ -130,6 +137,14 @@
 				{onMaskChange}
 				masks={engine.getMasks()}
 				slideStep={0.0001}
+				paddingTop="7px"
+			/>
+			<CoefInput
+				label="speed"
+				bind:coef={timeDelta}
+				{onMaskChange}
+				masks={engine.getMasks()}
+				slideStep={0.01}
 				paddingTop="7px"
 			/>
 		</fieldset>
@@ -210,11 +225,15 @@
 		font-family: Cantarell;
 		font-size: 16px;
 	}
+	.wrap-words {
+		white-space: initial;
+	}
 
 	.cfg-wrap {
 		position: fixed;
 		left: 0;
 		top: 0;
+		max-width: 324px;
 		max-height: 100vh;
 		background-color: rgba(255, 255, 255, 0.95);
 		transition: opacity 0.1s ease;
