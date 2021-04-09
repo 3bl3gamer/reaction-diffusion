@@ -137,9 +137,9 @@ void main(void) {
 	float killRate = {{killRate}};
 	float timeDelta = {{timeDelta}};
 
-	vec2 cur = texture2D(uSampler, vTextureCoord).xy;
+	vec4 cur = texture2D(uSampler, vTextureCoord);
 
-	vec2 lap = -cur + 
+	vec2 lap = -cur.xy +
 		0.2 * (
 			texture2D(uSampler, vTextureCoord + uScale*vec2(1, 0)).xy +
 			texture2D(uSampler, vTextureCoord + uScale*vec2(-1,0)).xy +
@@ -156,13 +156,38 @@ void main(void) {
 	float b = cur.y;
 	float newA = a + (diffusionRateA * lap.x - a * b * b + feedRate * (1. - a)) * timeDelta;
 	float newB = b + (diffusionRateB * lap.y + a * b * b - (killRate + feedRate) * b) * timeDelta;
+	newA = clamp(newA, 0., 1.);
+	newB = clamp(newB, 0., 1.);
+	float change = (a-newA) - (b-newB);
 
-	gl_FragColor = vec4(clamp(newA, 0., 1.), clamp(newB, 0., 1.), 0, 1.);
+	gl_FragColor = vec4(newA, newB, max(change, mix(change, cur.z, 0.99)), 1.);
 }`
 
-const resultFS = `
+const resultFSColorConvs = {
+	whiteBlack: `
+		float c = clamp((field.x - field.y*1.5)*4., 0., 1.);
+		vec3 color = vec3(c, c, c);
+	`,
+	rgb: `
+		float change = (abs(field.z)*200.);
+		change = change/(0.25+change)*1.333;
+		vec3 color = vec3(change, field.x*0.5, field.y*1.5);
+	`,
+	green: `
+		float c = clamp((field.x - field.y*1.5)*4., 0., 1.);
+		vec3 color = vec3(c, 1.-field.y, field.x);
+	`,
+	changes: `
+		float c = 1.-clamp((field.x - field.y*1.5)*4., 0., 1.);
+		float change = (abs(field.z)*300.);
+		change = change/(0.25+change)*1.333;
+		vec3 changeCol = field.z < 0. ? vec3(1.,0.15,0.15) : vec3(0.25,0.75,0.25);
+		vec3 color = mix(vec3(c, c, c)*0.2, changeCol, change);
+	`,
+}
+export type ResultColorMode = keyof typeof resultFSColorConvs
+const resultFSRaw = `
 ${FS_FLOAT_HIGHP_OR_MEDIUMP}
-
 varying vec2 vTextureCoord;
 uniform sampler2D uSampler;
 uniform vec2 uOffset;
@@ -171,21 +196,21 @@ uniform lowp int uFrameVisible;
 
 void main(void) {
 	vec2 pos = vTextureCoord*uSize + uOffset;
-	vec2 col = texture2D(uSampler, pos).xy;
-	float c = clamp((col.x - col.y*1.5)*4., 0., 1.);//(col.x-0.4)*4.;
+	vec4 field = texture2D(uSampler, pos);
 
 	vec2 innerRect = step(0., pos) * step(-1., -pos);
 	vec2 outerRect = step(-0.005, pos) * step(-1.005, -pos);
 	float isIn = uFrameVisible > 0
 		? (min(innerRect.x, innerRect.y)*0.8+0.2) + (1.-min(outerRect.x, outerRect.y))*0.4
 		: 1.;
-	// gl_FragColor = vec4(mix(vec3(0.5), vec3(c, c, c), isIn), 1.);
-	gl_FragColor = vec4(mix(vec3(0.5), vec3(c, 1.-col.y, col.x), isIn), 1.);
+
+	{{COLOR_CONV}}
+
+	gl_FragColor = vec4(mix(vec3(0.5), color, isIn), 1.);
 }`
 
 const copyFS = `
 ${FS_FLOAT_HIGHP_OR_MEDIUMP}
-
 varying vec2 vTextureCoord;
 uniform sampler2D uSampler;
 
@@ -202,10 +227,8 @@ uniform mat3 uTransform;
 void main(void) {
 	gl_Position = vec4(((uTransform*vec3(aPosition, 1.)).xy-0.5)*2., 0, 1.);
 }`
-
 const lineFS = `
 ${FS_FLOAT_HIGHP_OR_MEDIUMP}
-
 uniform vec4 uColor;
 
 void main(void) {
@@ -223,6 +246,7 @@ export class ReactionDiffusion {
 
 	private coefs: Coefs
 	private masks: Mask[]
+	private colorMode: ResultColorMode
 
 	private wrapMode: WrapMode = 'repeat'
 	private frameIsVisible = true
@@ -231,9 +255,12 @@ export class ReactionDiffusion {
 		prog: GfxSharerProgram
 		draw: () => void
 	} | null = null
-	private drawResult: (view: View | null) => void
+	private result: {
+		prog: GfxSharerProgram
+		draw: (view: View | null) => void
+	} | null = null
 	private drawCopy: () => void
-	private drawLineInner: (x0: number, y0: number, x1: number, y1: number) => void
+	private drawLineInner: (x0: number, y0: number, x1: number, y1: number, ab?: [number, number]) => void
 
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
 		this.fieldTextureType = (() => {
@@ -281,27 +308,10 @@ export class ReactionDiffusion {
 			new MaskCircle(),
 			new MaskSmoothCircle(),
 		]
+		this.colorMode = 'green'
 
 		this.updateIterationData()
-
-		const progResult = createGfxShaderProgram(gl, simpleTextureVS, resultFS)
-		const uOffset = mustGetGfxUniformLocation(gl, progResult, 'uOffset')
-		const uSize = mustGetGfxUniformLocation(gl, progResult, 'uSize')
-		const uFrameVisible = mustGetGfxUniformLocation(gl, progResult, 'uFrameVisible')
-		this.drawResult = makeSimpleDrawFunc(gl, this.rect, progResult, {
-			beforeDraw: (view: View | null) => {
-				if (view === null) {
-					gl.uniform2f(uOffset, 0, 0)
-					gl.uniform2f(uSize, 1, 1)
-					gl.uniform1i(uFrameVisible, 0)
-				} else {
-					const { width: gw, height: gh } = gl.canvas
-					gl.uniform2f(uOffset, -view.x / view.width, -view.y / view.height)
-					gl.uniform2f(uSize, gw / view.width, gh / view.height)
-					gl.uniform1i(uFrameVisible, this.frameIsVisible ? 1 : 0)
-				}
-			},
-		})
+		this.updateResultData()
 
 		const progCopy = createGfxShaderProgram(gl, simpleTextureVS, copyFS)
 		this.drawCopy = makeSimpleDrawFunc(gl, this.rect, progCopy)
@@ -363,9 +373,8 @@ export class ReactionDiffusion {
 
 	draw(view: View | null): void {
 		setRenderTarget(this.gl, null)
-		// this.gl.viewport(0, 0, this.width, this.height)
 		this.curFB.gfxTex.bind(this.gl)
-		this.drawResult(view)
+		this.result && this.result.draw(view)
 	}
 
 	updateIterationData(): void {
@@ -407,6 +416,33 @@ export class ReactionDiffusion {
 		})
 
 		this.iteration = { prog, draw }
+	}
+	updateResultData(): void {
+		const gl = this.gl
+		if (this.result) deleteGfxShaderProgramWithShaders(gl, this.result.prog)
+
+		const resultFS = resultFSRaw.replace('{{COLOR_CONV}}', resultFSColorConvs[this.colorMode])
+
+		const prog = createGfxShaderProgram(gl, simpleTextureVS, resultFS)
+		const uOffset = mustGetGfxUniformLocation(gl, prog, 'uOffset')
+		const uSize = mustGetGfxUniformLocation(gl, prog, 'uSize')
+		const uFrameVisible = mustGetGfxUniformLocation(gl, prog, 'uFrameVisible')
+
+		const draw = makeSimpleDrawFunc(gl, this.rect, prog, {
+			beforeDraw: (view: View | null) => {
+				if (view === null) {
+					gl.uniform2f(uOffset, 0, 0)
+					gl.uniform2f(uSize, 1, 1)
+					gl.uniform1i(uFrameVisible, 0)
+				} else {
+					const { width: gw, height: gh } = gl.canvas
+					gl.uniform2f(uOffset, -view.x / view.width, -view.y / view.height)
+					gl.uniform2f(uSize, gw / view.width, gh / view.height)
+					gl.uniform1i(uFrameVisible, this.frameIsVisible ? 1 : 0)
+				}
+			},
+		})
+		this.result = { prog, draw }
 	}
 	updateTexWrapMode(): void {
 		const gl = this.gl
@@ -520,6 +556,14 @@ export class ReactionDiffusion {
 	setWrapMode(wrapMode: WrapMode): void {
 		this.wrapMode = wrapMode
 		this.updateTexWrapMode()
+	}
+
+	getColorMode(): ResultColorMode {
+		return this.colorMode
+	}
+	setColorMode(mode: ResultColorMode): void {
+		this.colorMode = mode
+		this.updateResultData()
 	}
 
 	isFrameVisible(): boolean {

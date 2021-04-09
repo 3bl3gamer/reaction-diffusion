@@ -7,6 +7,7 @@
 <script lang="ts">
 	import CoefInput from './CoefInput.svelte'
 	import { MaskCircle, MaskGradient, MaskSmoothCircle, MaskSolid, ReactionDiffusion } from './engine'
+	import type { ResultColorMode } from './engine'
 
 	export let engine: ReactionDiffusion
 	export let frameSize: number
@@ -16,6 +17,8 @@
 	export let onScreenshot: () => void
 	export let wrapElem: HTMLDivElement
 	export let isShown = true
+
+	let colorMode: ResultColorMode = 'green'
 
 	let e = () => engine //hiding engine (and it's methods) from reactivity
 
@@ -53,6 +56,8 @@
 	$: wrapMode = e().getWrapMode()
 
 	$: e().toggleFrame(frameMode === 'darken')
+
+	$: e().setColorMode(colorMode)
 
 	function toExp2(value: number) {
 		if (value <= 1) return value
@@ -250,6 +255,29 @@
 				</div>
 			{/if}
 		</fieldset>
+		<fieldset>
+			<legend>Цвет</legend>
+			<label><input type="radio" value="whiteBlack" bind:group={colorMode} />ч/б</label>
+			<label><input type="radio" value="rgb" bind:group={colorMode} />RGB</label>
+			<label><input type="radio" value="green" bind:group={colorMode} />зелёный</label><br />
+			<label><input type="radio" value="changes" bind:group={colorMode} />изменения</label>
+		</fieldset>
+		<fieldset class="draw-cfg">
+			<legend>Рисование</legend>
+			<button on:click={() => engine.clear()}>♻️</button>&nbsp;
+			<button on:click={() => drawVertLines(1)}>|</button>
+			<button on:click={() => drawVertLines(2)}>||</button>
+			<button on:click={() => drawVertLines(3)}>|||</button>&nbsp;
+			<button on:click={drawOneDot}>•</button>
+			<button on:click={drawThreeDots}>
+				<div style="margin:0 -2px 0 -2px; transform:translateY(-2px)">𐬽</div>
+			</button>
+			<button on:click={drawRandomDots} style="position:relative">
+				<div style="margin:0 -3px 0 -2px">𐬽</div>
+				<div style="position:absolute;left:-3px;top:-3px">𐬼</div>
+			</button>
+			<div class="dim small" style="text-align:center">а ещё — мышкой/пальцем</div>
+		</fieldset>
 		<fieldset class="sim-cfg">
 			<legend>Симуляция</legend>
 			<div class="mask-label small">маска</div>
@@ -293,22 +321,6 @@
 				slideStep={0.01}
 				paddingTop="7px"
 			/>
-		</fieldset>
-		<fieldset class="draw-cfg">
-			<legend>Рисование</legend>
-			<button on:click={() => engine.clear()}>♻️</button>&nbsp;
-			<button on:click={() => drawVertLines(1)}>|</button>
-			<button on:click={() => drawVertLines(2)}>||</button>
-			<button on:click={() => drawVertLines(3)}>|||</button>&nbsp;
-			<button on:click={drawOneDot}>•</button>
-			<button on:click={drawThreeDots}>
-				<div style="margin:0 -2px 0 -2px; transform:translateY(-2px)">𐬽</div>
-			</button>
-			<button on:click={drawRandomDots} style="position:relative">
-				<div style="margin:0 -3px 0 -2px">𐬽</div>
-				<div style="position:absolute;left:-3px;top:-3px">𐬼</div>
-			</button>
-			<div class="dim small" style="text-align:center">а ещё — мышкой/пальцем</div>
 		</fieldset>
 		<fieldset class="size-cfg">
 			<legend>Размер</legend>
