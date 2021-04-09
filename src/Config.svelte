@@ -1,5 +1,7 @@
 <script context="module" lang="ts">
 	export type FrameMode = 'visible' | 'darken' | 'hidden'
+	// highlight is broken without this
+	0; //prettier-ignore
 </script>
 
 <script lang="ts">
@@ -9,7 +11,9 @@
 	export let engine: ReactionDiffusion
 	export let frameSize: number
 	export let frameMode: FrameMode = 'darken'
+	export let itersPerFrame = 24
 	export let onResize: () => void
+	export let onScreenshot: () => void
 	export let wrapElem: HTMLDivElement
 	export let isShown = true
 
@@ -49,6 +53,19 @@
 	$: wrapMode = e().getWrapMode()
 
 	$: e().toggleFrame(frameMode === 'darken')
+
+	function toExp2(value: number) {
+		if (value <= 1) return value
+		const exp = Math.floor(Math.log2(value))
+		return exp * 2 + (value - Math.pow(2, exp) < Math.pow(2, exp - 1) ? 0 : 1)
+	}
+	function fromExp2(exp: number) {
+		if (exp <= 1) return exp
+		const value = Math.pow(2, Math.floor(exp / 2))
+		return value + (exp % 2 === 0 ? 0 : value / 2)
+	}
+	$: itersPerFrameExp = toExp2(itersPerFrame)
+	const onItersPerFrameExpChange = e => (itersPerFrame = fromExp2(+e.currentTarget.value))
 
 	function onKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape') isShown = !isShown
@@ -210,6 +227,7 @@
 		{:else}
 			<button class="link-like" on:click={() => (isShown = true)}>&gt;&gt;</button>
 		{/if}
+		<button class="link-like" style="float:right" on:click={onScreenshot}>скриншот</button>
 	</div>
 	<div class="cfg-scroll">
 		<div class="info-block">
@@ -276,6 +294,22 @@
 				paddingTop="7px"
 			/>
 		</fieldset>
+		<fieldset class="draw-cfg">
+			<legend>Рисование</legend>
+			<button on:click={() => engine.clear()}>♻️</button>&nbsp;
+			<button on:click={() => drawVertLines(1)}>|</button>
+			<button on:click={() => drawVertLines(2)}>||</button>
+			<button on:click={() => drawVertLines(3)}>|||</button>&nbsp;
+			<button on:click={drawOneDot}>•</button>
+			<button on:click={drawThreeDots}>
+				<div style="margin:0 -2px 0 -2px; transform:translateY(-2px)">𐬽</div>
+			</button>
+			<button on:click={drawRandomDots} style="position:relative">
+				<div style="margin:0 -3px 0 -2px">𐬽</div>
+				<div style="position:absolute;left:-3px;top:-3px">𐬼</div>
+			</button>
+			<div class="dim small" style="text-align:center">а ещё — мышкой/пальцем</div>
+		</fieldset>
 		<fieldset class="size-cfg">
 			<legend>Размер</legend>
 			<div>
@@ -302,21 +336,19 @@
 				</div>
 			{/if}
 		</fieldset>
-		<fieldset class="draw-cfg">
-			<legend>Рисование</legend>
-			<button on:click={() => engine.clear()}>♻️</button>&nbsp;
-			<button on:click={() => drawVertLines(1)}>|</button>
-			<button on:click={() => drawVertLines(2)}>||</button>
-			<button on:click={() => drawVertLines(3)}>|||</button>&nbsp;
-			<button on:click={drawOneDot}>•</button>
-			<button on:click={drawThreeDots}>
-				<div style="margin:0 -2px 0 -2px; transform:translateY(-2px)">𐬽</div>
-			</button>
-			<button on:click={drawRandomDots} style="position:relative">
-				<div style="margin:0 -3px 0 -2px">𐬽</div>
-				<div style="position:absolute;left:-3px;top:-3px">𐬼</div>
-			</button>
-			<div class="dim small" style="text-align:center">а так же — мышкой/пальцем</div>
+		<fieldset>
+			<legend>Итераций на кадр</legend>
+			<span class="dim">плавнее</span>
+			<input
+				type="range"
+				class="iters-input"
+				min="1"
+				max="14"
+				value={itersPerFrameExp}
+				on:input={onItersPerFrameExpChange}
+			/>
+			{itersPerFrame}
+			<span class="dim">быстрее</span>
 		</fieldset>
 		<fieldset class="frame-cfg">
 			<legend>Внешняя область</legend>
@@ -469,6 +501,10 @@
 	/* .draw-cfg button.active {
 		box-shadow: 0 0 3px green;
 	} */
+
+	.iters-input {
+		width: 84px;
+	}
 
 	.frame-cfg .switches {
 		display: flex;

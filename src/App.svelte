@@ -2,8 +2,9 @@
 	import { afterUpdate, onMount } from 'svelte'
 	import Config from './Config.svelte'
 	import type { FrameMode } from './Config.svelte'
-	import { ReactionDiffusion, setupRecorder } from './engine'
+	import Tip from './Tip.svelte'
 	import FPS from './FPS.svelte'
+	import { ReactionDiffusion, setupRecorder } from './engine'
 	import { controlSingle } from 'js-control'
 
 	let fps: FPS | null = null
@@ -12,7 +13,9 @@
 	let canvas: HTMLCanvasElement
 	let engine: ReactionDiffusion | null = null
 	let frameMode: FrameMode = 'darken'
+	let itersPerFrame = 24
 	let sidebarWrapElem: HTMLDivElement | null = null
+	let screenshotTip: { left: number; top: number } | null = null
 
 	const mainRegion = { x: 0, y: 0, width: 1, height: 1 }
 
@@ -77,6 +80,25 @@
 		}
 	}
 
+	function saveScreenshot() {
+		if (!engine) return
+		const [enWidth, enHeight] = engine.getSize()
+		canvas.width = enWidth
+		canvas.height = enHeight
+		engine.draw(null)
+		canvas.toBlob(blob => {
+			const a = document.createElement('a')
+			a.download = 'reaction-diffusion.png'
+			document.body.appendChild(a)
+			const url = URL.createObjectURL(blob)
+			a.href = url
+			a.click()
+			document.body.removeChild(a)
+			URL.revokeObjectURL(url)
+		}, 'image/png')
+		resizeCanvas()
+	}
+
 	onMount(() => {
 		// canvas.width = w
 		// canvas.height = h
@@ -107,9 +129,8 @@
 				rd.drawDot(...xy2canvas(p.x, p.y))
 			}
 
-			const n = 24
-			rd.iter(n)
-			ips && ips.frame(n)
+			rd.iter(itersPerFrame)
+			ips && ips.frame(itersPerFrame)
 
 			rd.draw(frameMode === 'hidden' ? null : mainRegion)
 			fps && fps.frame()
@@ -181,8 +202,10 @@
 		bind:isShown={sidebarIsShown}
 		{engine}
 		{onResize}
+		onScreenshot={saveScreenshot}
 		bind:frameSize={maxFrameSize}
 		bind:frameMode
+		bind:itersPerFrame
 	>
 		<span slot="fps"><FPS bind:this={fps} /></span>
 		<span slot="ips"><FPS bind:this={ips} average={5} /></span>
@@ -194,7 +217,14 @@
 		class:fullsize={frameMode !== 'hidden'}
 		style={canvasPosStyle}
 		bind:this={canvas}
+		on:contextmenu={e => (screenshotTip = { left: e.clientX, top: e.clientY })}
+		on:mousemove={() => (screenshotTip = null)}
 	/>
+	{#if screenshotTip}
+		<Tip origin={screenshotTip}>
+			Так картинку сохранить скорее всего<br /> не получится. Сверху есть кнопка.
+		</Tip>
+	{/if}
 </div>
 
 <style>

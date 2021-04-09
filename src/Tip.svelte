@@ -6,14 +6,21 @@
 	let wrap: HTMLDivElement
 	let left = 0
 	let top = 0
+	export let origin: { left: number, top: number } | undefined
 
 	onMount(() => {
-		const parent = fakePortalElem.parentElement
-		if (parent) {
-			const parentRect = parent.getBoundingClientRect()
-			const wrapRect = wrap.getBoundingClientRect()
-			left = parentRect.left
-			top = parentRect.top - wrapRect.height - 12
+		const wrapRect = wrap.getBoundingClientRect()
+		if (origin) {
+			;({ left, top } = origin)
+			left -= wrapRect.width / 2
+			top += -wrapRect.height - 12
+		} else {
+			const parent = fakePortalElem.parentElement
+			if (parent) {
+				const parentRect = parent.getBoundingClientRect()
+				left = parentRect.left
+				top = parentRect.top - wrapRect.height - 12
+			}
 		}
 	})
 </script>
