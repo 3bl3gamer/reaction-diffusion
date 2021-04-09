@@ -179,8 +179,8 @@ void main(void) {
 	float isIn = uFrameVisible > 0
 		? (min(innerRect.x, innerRect.y)*0.8+0.2) + (1.-min(outerRect.x, outerRect.y))*0.4
 		: 1.;
-	gl_FragColor = vec4(mix(vec3(0.5), vec3(c, c, c), isIn), 1.);
-	// gl_FragColor = vec4(c, 1.-col.y, col.x, 1.);
+	// gl_FragColor = vec4(mix(vec3(0.5), vec3(c, c, c), isIn), 1.);
+	gl_FragColor = vec4(mix(vec3(0.5), vec3(c, 1.-col.y, col.x), isIn), 1.);
 }`
 
 const copyFS = `
@@ -310,7 +310,7 @@ export class ReactionDiffusion {
 		const uTransform = mustGetGfxUniformLocation(gl, progLine, 'uTransform')
 		const uColor = mustGetGfxUniformLocation(gl, progLine, 'uColor')
 		this.drawLineInner = makeSimpleDrawFunc(gl, this.rect, progLine, {
-			beforeDraw: (x0: number, y0: number, x1: number, y1: number) => {
+			beforeDraw: (x0: number, y0: number, x1: number, y1: number, ab?: [number, number]) => {
 				const len = Math.sqrt((x1 - x0) ** 2 + (y0 - y1) ** 2)
 				const dir = Math.atan2(y1 - y0, x1 - x0)
 				const mat = mat3.create()
@@ -320,7 +320,8 @@ export class ReactionDiffusion {
 				mat3.rotate(mat, mat, dir)
 				mat3.scale(mat, mat, [len / this.width, LINE_W / this.height])
 				mat3.translate(mat, mat, [0, -0.5])
-				gl.uniform4f(uColor, 0, 1, 0, 0)
+				const [a, b] = ab || [0, 1]
+				gl.uniform4f(uColor, a, b, 0, 0)
 				gl.uniformMatrix3fv(uTransform, false, mat)
 			},
 		})
@@ -447,10 +448,10 @@ export class ReactionDiffusion {
 			gl.clear(gl.COLOR_BUFFER_BIT)
 		}
 	}
-	drawDot(x: number, y: number): void {
-		this.drawLine(x - LINE_W / 2, y, x + LINE_W / 2, y)
+	drawDot(x: number, y: number, ab?: [number, number]): void {
+		this.drawLine(x - LINE_W / 2, y, x + LINE_W / 2, y, ab)
 	}
-	drawLine(x0: number, y0: number, x1: number, y1: number): void {
+	drawLine(x0: number, y0: number, x1: number, y1: number, ab?: [number, number]): void {
 		// console.log(' --- ')
 		setRenderTarget(this.gl, this.curFB)
 		this.drawLineInner(x0, y0, x1, y1)
@@ -469,7 +470,7 @@ export class ReactionDiffusion {
 		while (curX < x1) {
 			const cellX = cellI * this.width
 			const cellY = cellJ * this.height
-			this.drawLineInner(x0 - cellX, y0 - cellY, x1 - cellX, y1 - cellY)
+			this.drawLineInner(x0 - cellX, y0 - cellY, x1 - cellX, y1 - cellY, ab)
 			const newY = curY + (cellX + this.width - curX) * aspect
 			// console.log([cellI, cellJ], [cellX, cellY], [curX, curY], newY)
 			if (newY < cellY) {

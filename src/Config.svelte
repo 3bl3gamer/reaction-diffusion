@@ -4,7 +4,7 @@
 
 <script lang="ts">
 	import CoefInput from './CoefInput.svelte'
-	import { MaskGradient, MaskSmoothCircle, MaskSolid, ReactionDiffusion } from './engine'
+	import { MaskCircle, MaskGradient, MaskSmoothCircle, MaskSolid, ReactionDiffusion } from './engine'
 
 	export let engine: ReactionDiffusion
 	export let frameSize: number
@@ -120,6 +120,34 @@
 			feedRate.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 315)
 			killRate.minVal = killRate.maxVal = 0.061886156571588954
 			drawVertLines(1)
+		},
+		реактор() {
+			feedRate.minVal = 0.055
+			feedRate.maxVal = 0.0272
+			feedRate.mask = mustFundMask(x => x instanceof MaskCircle)
+			killRate.minVal = 0.062
+			killRate.maxVal = 0.05
+			killRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			drawRandomDots()
+		},
+		спирали() {
+			diffusionRateA.minVal = diffusionRateA.maxVal = 0
+			diffusionRateB.minVal = diffusionRateB.maxVal = 0.5
+			feedRate.minVal = feedRate.maxVal = 0.015
+			killRate.minVal = killRate.maxVal = 0.045
+			timeDelta.minVal = timeDelta.maxVal = 0.3
+			const [w, h] = engine.getSize()
+			const [cx, cy] = [w / 2, h / 2]
+			const step = 0.2
+			const r = a => a * 30
+			const xy = (a, dr) => [cx + Math.cos(a) * (r(a) + dr), cy + Math.sin(a) * (r(a) + dr)] as const
+			for (let a = 0; r(a) < Math.min(w / 2, h / 2); a += step) {
+				engine.drawLine(...xy(a, 0), ...xy(a + step, 0), [0.25, 0.2])
+				engine.drawLine(...xy(a, 3), ...xy(a + step, 3), [0.25, 0.2])
+				engine.drawLine(...xy(a, 6), ...xy(a + step, 6), [0.25, 0.2])
+				engine.drawLine(...xy(a, 9), ...xy(a + step, 9), [0.25, 0.2])
+				engine.drawLine(...xy(a, 12), ...xy(a + step, 12), [0, 1])
+			}
 		},
 		'карта kill/feed'() {
 			feedRate.minVal = 0.01 //- 0.007
