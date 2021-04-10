@@ -45,11 +45,14 @@ jobs:
       - name: Preparing files
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
+          git status
           git clean -fxd -e dist
+          git status
           echo ---
           ls . #TODO
           echo ---
           git checkout --force gh-pages
+          git status
           echo ---
           ls . #TODO
           echo ---
