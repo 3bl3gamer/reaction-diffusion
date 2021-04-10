@@ -47,16 +47,16 @@ jobs:
         run: |
           git clean -fxd -e /dist
           ls . #TODO
-          ls node_modules
+          ls node_modules || echo 'none'
           git status
           git checkout --force gh-pages
           ls . #TODO
-          ls node_modules
+          ls node_modules || echo 'none'
           git status
           mv dist/* .
           rm -r dist
           ls . #TODO
-          ls node_modules
+          ls node_modules || echo 'none'
           git status
 
       - name: Pushing build
