@@ -45,24 +45,10 @@ jobs:
       - name: Preparing files
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
-          git status
-          git clean -fxd -e dist
-          git status
-          echo ---
-          ls . #TODO
-          ls node_modules
-          echo ---
+          git clean -fxd -e /dist
           git checkout --force gh-pages
-          git status
-          echo ---
-          ls . #TODO
-          ls node_modules
-          echo ---
           mv dist/* .
           rm -r dist
-          echo ---
-          ls . #TODO
-          ls node_modules
 
       - name: Pushing build
         working-directory: ${{ env.GITHUB_WORKSPACE }}
