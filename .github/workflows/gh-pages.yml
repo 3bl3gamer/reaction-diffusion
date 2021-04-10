@@ -45,7 +45,7 @@ jobs:
       - name: Preparing files
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
-          git clean -n -fxd -e dist
+          git clean -fxd -e dist
           git checkout gh-pages
           mv dist/* .
           rm -r dist
