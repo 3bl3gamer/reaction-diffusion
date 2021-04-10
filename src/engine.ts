@@ -179,6 +179,12 @@ const resultFSColorConvs = {
 		change = change/(0.5+change)*1.5;
 		vec3 color = hsv2rgb(vec3(c, 1.-change*0.25, (0.75+c*0.25+change*0.25)));
 	`,
+	darkSide: `
+		float c = clamp((field.x - field.y), 0., 0.70);
+		float change = (abs(field.z)*300.);
+		change = change/(0.5+change)*1.5;
+		vec3 color = hsv2rgb(vec3(c, 1.-change*0.25, (0.75+c*0.25)*(0.1+change*0.9)));
+	`,
 	green: `
 		float c = clamp((field.x - field.y*1.5)*4., 0., 1.);
 		vec3 color = vec3(c, 1.-field.y, field.x);
@@ -317,10 +323,6 @@ export class ReactionDiffusion {
 				: 'OES_texture_half_float_linear'
 			return gl.getExtension(name) ? gl.LINEAR : gl.NEAREST
 		})()
-
-		// // TODO: warn but continue
-		// const glTFloatLinearExt = gl.getExtension('OES_texture_float_linear')
-		// if (!glTFloatLinearExt) return alert('OES_texture_float_linear is not supported')
 
 		this.curFB = createGfxFramebuffer(gl, this.makeFieldTexture(width, height))
 		this.nextFB = createGfxFramebuffer(gl, this.makeFieldTexture(width, height))

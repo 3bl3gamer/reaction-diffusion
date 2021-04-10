@@ -15,7 +15,7 @@
 	export let itersPerFrame = 24
 	export let onResize: () => void
 	export let onScreenshot: () => void
-	export let wrapElem: HTMLDivElement
+	export let wrapElem: HTMLDivElement | null
 	export let isShown = true
 
 	let colorMode: ResultColorMode = 'green'
@@ -121,6 +121,7 @@
 		timeDelta.minVal = timeDelta.maxVal = 1
 
 		wrapMode = 'repeat'
+		colorMode = 'green'
 		engine.clear()
 		func()
 		engine.updateIterationData()
@@ -130,6 +131,7 @@
 			feedRate.minVal = 0.018
 			feedRate.maxVal = 0.055
 			feedRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			colorMode = 'darkSide'
 			drawOneDot()
 		},
 		'дерево в рамке'() {
@@ -141,6 +143,7 @@
 			feedRate.maxVal = 0.014681911230716192
 			feedRate.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 315)
 			killRate.minVal = killRate.maxVal = 0.061886156571588954
+			colorMode = 'blueGreen'
 			drawVertLines(1)
 		},
 		реактор() {
@@ -150,7 +153,8 @@
 			killRate.minVal = 0.062
 			killRate.maxVal = 0.05
 			killRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
-			timeDelta.minVal = timeDelta.maxVal = 0.5
+			timeDelta.minVal = timeDelta.maxVal = engine.isHighpSupported() ? 0.5 : 1
+			colorMode = 'electric'
 			drawRandomDots()
 		},
 		спирали() {
@@ -171,6 +175,84 @@
 				engine.drawLine(...xy(a, 9), ...xy(a + step, 9), [0.25, 0.2])
 				engine.drawLine(...xy(a, 12), ...xy(a + step, 12), [0, 1])
 			}
+		},
+		'спирали (красно-зелёные)'() {
+			presetFuncs.спирали()
+			colorMode = 'changes'
+		},
+		пульсация() {
+			diffusionRateA.minVal = diffusionRateA.maxVal = 0.2
+			diffusionRateB.minVal = diffusionRateB.maxVal = 0.8
+			feedRate.minVal = feedRate.maxVal = 0.018
+			killRate.minVal = 0.064
+			killRate.maxVal = 0.032
+			killRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			timeDelta.minVal = timeDelta.maxVal = engine.isHighpSupported() ? 0.5 : 1
+			colorMode = 'green'
+			drawOneDot()
+		},
+		'кипящая жижа'() {
+			feedRate.minVal = 0.028
+			feedRate.maxVal = 0.005
+			feedRate.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 270)
+			killRate.minVal = killRate.maxVal = 0.05
+			timeDelta.minVal = timeDelta.maxVal = engine.isHighpSupported() ? 0.5 : 0.8
+			const [w, h] = engine.getSize()
+			engine.drawDot(w / 2, h * 0.8)
+		},
+		фаербол() {
+			feedRate.minVal = 0.01
+			feedRate.maxVal = 0.02
+			feedRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			killRate.minVal = 0.059
+			killRate.maxVal = 0.04
+			killRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			colorMode = 'hsv'
+			timeDelta.minVal = timeDelta.maxVal = engine.isHighpSupported() ? 0.5 : 0.8
+			drawThreeDots()
+		},
+		кляксы() {
+			feedRate.minVal = feedRate.maxVal = 0.09
+			killRate.minVal = killRate.maxVal = 0.0576
+			colorMode = 'blueGreen'
+			drawRandomDots()
+		},
+		'отпечаток пальца'() {
+			diffusionRateA.minVal = 0.44
+			diffusionRateA.maxVal = 1
+			diffusionRateA.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			diffusionRateB.minVal = 0.414
+			diffusionRateB.maxVal = 0.473
+			diffusionRateB.mask = mustFundMask(x => x instanceof MaskGradient && x.getAngleDeg() === 270)
+			feedRate.minVal = feedRate.maxVal = 0.035
+			killRate.minVal = killRate.maxVal = 0.059
+			colorMode = 'whiteBlack'
+			drawRandomDots()
+		},
+		'чашка Петри'() {
+			feedRate.minVal = feedRate.maxVal = 0.014
+			killRate.minVal = killRate.maxVal = 0.05
+			timeDelta.minVal = -0.05
+			timeDelta.maxVal = 1
+			timeDelta.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			colorMode = 'green'
+			drawOneDot()
+		},
+		'деление клеток'() {
+			feedRate.minVal = feedRate.maxVal = 0.03
+			killRate.minVal = killRate.maxVal = 0.0625
+			colorMode = 'blueGreen'
+			drawOneDot()
+			if (!engine.isHighpSupported()) {
+				const [w, h] = engine.getSize()
+				engine.drawLine(w / 2 - 3, h / 2, w / 2 + 3, h / 2)
+			}
+		},
+		'круги и черви'() {
+			feedRate.minVal = feedRate.maxVal = 0.082
+			killRate.minVal = killRate.maxVal = 0.06
+			colorMode = 'blueGreen'
+			drawRandomDots()
 		},
 		'карта kill/feed'() {
 			feedRate.minVal = 0.01 //- 0.007
@@ -265,6 +347,7 @@
 			<label><input type="radio" value="blueGreen" bind:group={colorMode} />сине-зелёный</label>
 			<label><input type="radio" value="changes" bind:group={colorMode} />изменения</label><br />
 			<label><input type="radio" value="electric" bind:group={colorMode} />электрический</label>
+			<label><input type="radio" value="darkSide" bind:group={colorMode} />Тёмная сторона</label>
 		</fieldset>
 		<fieldset class="draw-cfg">
 			<legend>Рисование</legend>
