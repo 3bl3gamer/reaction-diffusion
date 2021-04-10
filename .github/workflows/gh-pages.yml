@@ -29,6 +29,9 @@ jobs:
         with:
           node-version: 15.14.0
 
+      - run: which npm
+      - run: which node
+
       - run: npm install --release
         working-directory: $GITHUB_WORKSPACE
       
