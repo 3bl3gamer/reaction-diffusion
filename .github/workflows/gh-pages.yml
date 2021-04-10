@@ -46,7 +46,7 @@ jobs:
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           git checkout --force gh-pages
-          find . -not -path './dist/*' -and -not -path './.git/*' -delete
+          find . -not -regex './\(.git\|dist\)\(/.*\)?' -delete
           mv dist/* .
           rm -r dist
 
