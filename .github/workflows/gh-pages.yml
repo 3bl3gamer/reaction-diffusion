@@ -46,7 +46,9 @@ jobs:
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           git checkout --force gh-pages
-          find . -type f -not -wholename './dist/*' -and -not -wholename './.git/*' -delete
+          find . -not -path './dist/*' -and -not -path './.git/*' -delete
+          mv dist/* .
+          rm -r dist
 
       - name: Pushing build
         working-directory: ${{ env.GITHUB_WORKSPACE }}
