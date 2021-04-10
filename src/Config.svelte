@@ -150,6 +150,7 @@
 			killRate.minVal = 0.062
 			killRate.maxVal = 0.05
 			killRate.mask = mustFundMask(x => x instanceof MaskSmoothCircle)
+			timeDelta.minVal = timeDelta.maxVal = 0.5
 			drawRandomDots()
 		},
 		спирали() {
@@ -259,8 +260,11 @@
 			<legend>Цвет</legend>
 			<label><input type="radio" value="whiteBlack" bind:group={colorMode} />ч/б</label>
 			<label><input type="radio" value="rgb" bind:group={colorMode} />RGB</label>
+			<label><input type="radio" value="hsv" bind:group={colorMode} />HSV</label>
 			<label><input type="radio" value="green" bind:group={colorMode} />зелёный</label><br />
-			<label><input type="radio" value="changes" bind:group={colorMode} />изменения</label>
+			<label><input type="radio" value="blueGreen" bind:group={colorMode} />сине-зелёный</label>
+			<label><input type="radio" value="changes" bind:group={colorMode} />изменения</label><br />
+			<label><input type="radio" value="electric" bind:group={colorMode} />электрический</label>
 		</fieldset>
 		<fieldset class="draw-cfg">
 			<legend>Рисование</legend>
