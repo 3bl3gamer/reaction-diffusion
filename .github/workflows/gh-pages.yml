@@ -33,22 +33,22 @@ jobs:
       - run: pwd
         working-directory: ${{ GITHUB_WORKSPACE }}
       - run: which npm
-        working-directory: $GITHUB_WORKSPACE
+        working-directory: ${{ GITHUB_WORKSPACE }}
       - run: which node
-        working-directory: $GITHUB_WORKSPACE
+        working-directory: ${{ GITHUB_WORKSPACE }}
       - run: ls
-        working-directory: $GITHUB_WORKSPACE
+        working-directory: ${{ GITHUB_WORKSPACE }}
       - run: pwd
-        working-directory: $GITHUB_WORKSPACE
+        working-directory: ${{ GITHUB_WORKSPACE }}
 
       - run: npm install --release
-        working-directory: $GITHUB_WORKSPACE
+        working-directory: ${{ GITHUB_WORKSPACE }}
       
       - run: npm run build
-        working-directory: $GITHUB_WORKSPACE
+        working-directory: ${{ GITHUB_WORKSPACE }}
       
       - name: Push build
-        working-directory: $GITHUB_WORKSPACE
+        working-directory: ${{ GITHUB_WORKSPACE }}
         run: |
           git checkout gh-pages
           mv dist/* .
