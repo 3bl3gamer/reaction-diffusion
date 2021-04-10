@@ -346,7 +346,7 @@
 			<label><input type="radio" value="green" bind:group={colorMode} />зелёный</label><br />
 			<label><input type="radio" value="blueGreen" bind:group={colorMode} />сине-зелёный</label>
 			<label><input type="radio" value="changes" bind:group={colorMode} />изменения</label><br />
-			<label><input type="radio" value="electric" bind:group={colorMode} />электрический</label>
+			<label><input type="radio" value="electric" bind:group={colorMode} />электро</label>
 			<label><input type="radio" value="darkSide" bind:group={colorMode} />Тёмная сторона</label>
 		</fieldset>
 		<fieldset class="draw-cfg">
@@ -361,7 +361,7 @@
 			</button>
 			<button on:click={drawRandomDots} style="position:relative">
 				<div style="margin:0 -3px 0 -2px">𐬽</div>
-				<div style="position:absolute;left:-3px;top:-3px">𐬼</div>
+				<div style="position:absolute;top:-3px;transform:translateX(-3px)">𐬼</div>
 			</button>
 			<div class="dim small" style="text-align:center">а ещё — мышкой/пальцем</div>
 		</fieldset>

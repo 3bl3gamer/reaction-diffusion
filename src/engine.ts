@@ -139,7 +139,7 @@ void main(void) {
 
 	vec4 cur = texture2D(uSampler, vTextureCoord);
 
-	vec2 lap = -cur.xy +
+	vec2 laplacian = -cur.xy +
 		0.2 * (
 			texture2D(uSampler, vTextureCoord + uScale*vec2(1, 0)).xy +
 			texture2D(uSampler, vTextureCoord + uScale*vec2(-1,0)).xy +
@@ -152,14 +152,37 @@ void main(void) {
 			texture2D(uSampler, vTextureCoord + uScale*vec2(-1, 1)).xy
 		);
 
+	/*
+	// this should be faster theoretically but prctically compiler is smart enough and speed is same
+	vec2 ab = cur.xy;
 	float a = cur.x;
 	float b = cur.y;
-	float newA = a + (diffusionRateA * lap.x - a * b * b + feedRate * (1. - a)) * timeDelta;
-	float newB = b + (diffusionRateB * lap.y + a * b * b - (killRate + feedRate) * b) * timeDelta;
+	float reactionValue = a * b * b;
+	vec2 reaction = vec2(
+		-reactionValue, //for a
+		reactionValue   //for b
+	);
+	vec2 ambient = vec2(
+		feedRate * (1. - a),       //for a
+		-(killRate + feedRate) * b //for b
+	);
+	vec2 diffusionRate = vec2(diffusionRateA, diffusionRateB);
+
+	vec2 newAB = ab + (diffusionRate * laplacian + reaction + ambient)*timeDelta;
+	newAB = clamp(newAB, 0., 1.);
+	float change = (a-newAB.x) - (b-newAB.y);
+
+	gl_FragColor = vec4(newAB, max(change, mix(change, cur.z, 0.99)), 1.);
+	*/
+
+	float a = cur.x;
+	float b = cur.y;
+	float reaction = a * b * b;
+	float newA = a + (diffusionRateA * laplacian.x - reaction + feedRate * (1. - a)) * timeDelta;
+	float newB = b + (diffusionRateB * laplacian.y + reaction - (killRate + feedRate) * b) * timeDelta;
 	newA = clamp(newA, 0., 1.);
 	newB = clamp(newB, 0., 1.);
 	float change = (a-newA) - (b-newB);
-
 	gl_FragColor = vec4(newA, newB, max(change, mix(change, cur.z, 0.99)), 1.);
 }`
 
