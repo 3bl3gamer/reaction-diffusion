@@ -46,7 +46,7 @@ jobs:
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           git clean -fxd -e dist
-          git checkout gh-pages
+          git checkout --force gh-pages
           mv dist/* .
           rm -r dist
           ls . #TODO
@@ -56,4 +56,4 @@ jobs:
         run: |
           git add --all
           git commit -m "Update on $(date +'%Y-%m-%d %H:%M:%S')"
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git master
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git gh-pages
