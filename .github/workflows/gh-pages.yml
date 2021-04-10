@@ -50,20 +50,24 @@ jobs:
           git status
           echo ---
           ls . #TODO
+          ls node_modules
           echo ---
           git checkout --force gh-pages
           git status
           echo ---
           ls . #TODO
+          ls node_modules
           echo ---
           mv dist/* .
           rm -r dist
           echo ---
           ls . #TODO
+          ls node_modules
 
       - name: Pushing build
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           git add --all
+          git diff-index --quiet --cached HEAD -- && exit 0
           git commit -m "Update on $(date +'%Y-%m-%d %H:%M:%S')"
           git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git gh-pages
