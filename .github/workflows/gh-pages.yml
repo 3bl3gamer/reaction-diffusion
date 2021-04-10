@@ -49,6 +49,7 @@ jobs:
           git checkout --force gh-pages
           mv dist/* .
           rm -r dist
+          ls . #TODO
 
       - name: Pushing build
         working-directory: ${{ env.GITHUB_WORKSPACE }}
