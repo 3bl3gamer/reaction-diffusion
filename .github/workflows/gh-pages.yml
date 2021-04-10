@@ -46,9 +46,16 @@ jobs:
         working-directory: ${{ env.GITHUB_WORKSPACE }}
         run: |
           git clean -fxd -e dist
+          echo ---
+          ls . #TODO
+          echo ---
           git checkout --force gh-pages
+          echo ---
+          ls . #TODO
+          echo ---
           mv dist/* .
           rm -r dist
+          echo ---
           ls . #TODO
 
       - name: Pushing build
