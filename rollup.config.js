@@ -80,7 +80,7 @@ export default async function (commandOptions) {
 				inlineSources: !isProd,
 			}),
 			html({
-				title: 'Reaction-Diffusion',
+				title: 'Reaction–Diffusion',
 				lang: 'ru',
 				meta: [{ charset: 'utf-8' }, { viewport: 'width=device-width,initial-scale=1' }],
 			}),

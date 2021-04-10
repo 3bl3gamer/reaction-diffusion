@@ -319,7 +319,13 @@
 	</div>
 	<div class="cfg-scroll">
 		<div class="info-block">
-			<h1>Reaction-Diffusion</h1>
+			<h1>Reaction–Diffusion</h1>
+			<p style="opacity:0.8">
+				Симуляция двух (a и b)<br />
+				реагирующих друг с другом<br />
+				и рассеивающихся веществ.<br />
+				<a href="https://www.karlsims.com/rd.html">Подробнее</a>.
+			</p>
 		</div>
 		<fieldset class="cfg-presets">
 			<legend>Пресеты</legend>
@@ -436,13 +442,13 @@
 			{/if}
 		</fieldset>
 		<fieldset>
-			<legend>Итераций на кадр</legend>
+			<legend>Итераций за кадр</legend>
 			<span class="dim">плавнее</span>
 			<input
 				type="range"
 				class="iters-input"
 				min="1"
-				max="14"
+				max="16"
 				value={itersPerFrameExp}
 				on:input={onItersPerFrameExpChange}
 			/>
@@ -470,6 +476,21 @@
 				{frameSize}
 			</div>
 		</fieldset>
+		<p class="small">
+			Вдохновлено <a href="https://www.instagram.com/p/CGRCGcVHh4_/">постом в Инстаграме</a>
+		</p>
+		<p class="small">
+			Исходники:<br />
+			<a href="https://github.com/3bl3gamer/reaction-diffusion"
+				>github.com/3bl3gamer/reaction-diffusion</a
+			>
+		</p>
+		<p class="small">
+			Ещё у меня есть<br />
+			<a href="https://3bl3gamer.github.io/fractal-chaos/">Генератор фракталов методом Хаоса</a><br />
+			и
+			<a href="https://3bl3gamer.github.io/buddhabrot/">Генератор Буддабротов</a>
+		</p>
 	</div>
 </div>
 
