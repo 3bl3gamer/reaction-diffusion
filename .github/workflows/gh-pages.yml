@@ -40,6 +40,8 @@ jobs:
         run: |
           git branch -a
           git fetch https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git
+          echo fetched
+          git branch -a
           git checkout gh-pages
           mv dist/* .
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
