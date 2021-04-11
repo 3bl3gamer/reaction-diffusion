@@ -20,6 +20,13 @@
 
 	let colorMode: ResultColorMode = 'green'
 
+	let isFullscreen = false
+	function toggleFullscreen() {
+		isFullscreen = !isFullscreen
+		if (isFullscreen) document.body.requestFullscreen()
+		else document.exitFullscreen()
+	}
+
 	let e = () => engine //hiding engine (and it's methods) from reactivity
 
 	$: fieldIsRect = e().getSize()[0] === e().getSize()[1]
@@ -313,9 +320,28 @@
 		{#if isShown}
 			<button class="link-like" on:click={() => (isShown = false)}>&lt;&lt; скрыть (esc)</button>
 		{:else}
-			<button class="link-like" on:click={() => (isShown = true)}>&gt;&gt;</button>
+			<button class="link-like show-cfg" on:click={() => (isShown = true)}>&gt;&gt;</button>
 		{/if}
-		<button class="link-like" style="float:right" on:click={onScreenshot}>скриншот</button>
+		<button class="link-like" on:click={onScreenshot}>скриншот</button>
+		<button class="fullscreen" on:click={toggleFullscreen}>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="24px"
+				height="24px"
+				viewBox="0 0 24 24"
+				fill="#000000"
+			>
+				{#if isFullscreen}
+					<path d="M0 0h24v24H0V0z" fill="none" />
+					<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+				{:else}
+					<path d="M0 0h24v24H0V0z" fill="none" />
+					<path
+						d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+					/>
+				{/if}
+			</svg>
+		</button>
 	</div>
 	<div class="cfg-scroll">
 		<div class="info-block">
@@ -535,12 +561,26 @@
 		width: 0;
 		text-shadow: 0px 0px 2px white;
 	}
+	.cfg-wrap.minimized .cfg-head :not(.show-cfg) {
+		display: none;
+	}
 	.cfg-wrap.minimized .cfg-scroll {
 		display: none;
 	}
 
 	.cfg-head {
 		padding: 5px 10px 5px 5px;
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.fullscreen {
+		padding: 0;
+		border: 0;
+		background: none;
+	}
+	.fullscreen svg {
+		display: block;
 	}
 
 	.cfg-scroll {
