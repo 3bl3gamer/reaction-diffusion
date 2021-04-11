@@ -307,12 +307,48 @@ void main(void) {
 }`
 const LINE_W = 3
 
+function probeActualFloatSupport(gl: WebGLRenderingContext) {
+	const w = 1
+	const tex = createGfxTexture2d(gl, w, w, gl.RGBA, gl.FLOAT, null)
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	const fb = createGfxFramebuffer(gl, tex)
+
+	const fs = `
+	${FS_FLOAT_HIGHP_OR_MEDIUMP}
+	void main(void) {
+		vec4 col = vec4(0.123456789, 0., 0., 1.);
+		gl_FragColor = col; //precision is lost if assigned directly (mediump is used?)
+	}`
+	const prog = createGfxShaderProgram(gl, simpleTextureVS, fs)
+
+	const triangle = createGfxBuffer(gl, [0, 0, 2, 0, 0, 2], 2, gl.TRIANGLES)
+
+	setRenderTarget(gl, fb)
+	gl.clearColor(0, 0, 0, 0)
+	gl.clear(gl.COLOR_BUFFER_BIT)
+	makeSimpleDrawFunc(gl, triangle, prog)()
+
+	const buf = new Float32Array(w * w * 4)
+	gl.readPixels(0, 0, w, w, gl.RGBA, gl.FLOAT, buf)
+
+	setRenderTarget(gl, null)
+	deleteGfxShaderProgramWithShaders(gl, prog)
+	gl.deleteFramebuffer(fb.fb)
+	gl.deleteTexture(tex.tex)
+	gl.deleteBuffer(triangle.buf)
+
+	const precision = Math.log2(Math.abs(buf[0] - 0.123456789))
+	return precision < -20
+}
+
 export class ReactionDiffusion {
 	private curFB: GfxFramebuffer
 	private nextFB: GfxFramebuffer
 	// private coefsFB: GfxFramebuffer
 	private fieldTextureType: number
 	private fieldTextureMinFilter: number
+	private isHighpActuallySupported: boolean
 	private rect: GfxBuffer
 
 	private coefs: Coefs
@@ -334,17 +370,17 @@ export class ReactionDiffusion {
 	private drawLineInner: (x0: number, y0: number, x1: number, y1: number, ab?: [number, number]) => void
 
 	constructor(private gl: WebGLRenderingContext, private width: number, private height: number) {
-		this.fieldTextureType = (() => {
+		;[this.fieldTextureType, this.isHighpActuallySupported] = (() => {
 			const glTFloatExt = gl.getExtension('OES_texture_float')
 			const glCBFloatExt = gl.getExtension('WEBGL_color_buffer_float')
-			if (glTFloatExt && glCBFloatExt) return gl.FLOAT
+			if (glTFloatExt && glCBFloatExt) return [gl.FLOAT, probeActualFloatSupport(gl)] as const
 			const glTHalfFloatExt = gl.getExtension('OES_texture_half_float')
 			const glCBHalfFloatExt = gl.getExtension('EXT_color_buffer_half_float')
-			if (glTHalfFloatExt && glCBHalfFloatExt) return glTHalfFloatExt.HALF_FLOAT_OES
+			if (glTHalfFloatExt && glCBHalfFloatExt) return [glTHalfFloatExt.HALF_FLOAT_OES, false] as const
 			throw new Error('девайс/браузер не поддерживает достаточную точность вычислений на видеокарте')
 		})()
 		this.fieldTextureMinFilter = (() => {
-			const name = this.isHighpSupported()
+			const name = this.isFloatTexSupported()
 				? 'OES_texture_float_linear'
 				: 'OES_texture_half_float_linear'
 			return gl.getExtension(name) ? gl.LINEAR : gl.NEAREST
@@ -599,8 +635,11 @@ export class ReactionDiffusion {
 		}
 	}
 
-	isHighpSupported(): boolean {
+	isFloatTexSupported(): boolean {
 		return this.fieldTextureType === this.gl.FLOAT
+	}
+	isHighpSupported(): boolean {
+		return this.isHighpActuallySupported
 	}
 
 	getMaxFieldSize(): number {
