@@ -105,9 +105,12 @@ export type View = { x: number; y: number; width: number; height: number }
 const FS_FLOAT_HIGHP_OR_MEDIUMP = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
+precision highp sampler2D;
 #else
 precision mediump float;
-#endif`
+precision mediump sampler2D;
+#endif
+`
 
 const simpleTextureVS = `
 precision highp float;
@@ -122,7 +125,6 @@ void main(void) {
 
 const iterationFSRaw = `
 ${FS_FLOAT_HIGHP_OR_MEDIUMP}
-precision highp sampler2D;
 
 varying vec2 vTextureCoord;
 uniform sampler2D uSampler;
@@ -183,7 +185,8 @@ void main(void) {
 	newA = clamp(newA, 0., 1.);
 	newB = clamp(newB, 0., 1.);
 	float change = (a-newA) - (b-newB);
-	gl_FragColor = vec4(newA, newB, max(change, mix(change, cur.z, 0.99)), 1.);
+	vec4 _col = vec4(newA, newB, max(change, mix(change, cur.z, 0.99)), 1.);
+	gl_FragColor = _col; //precision is lost if assigned directly (mediump is used?)
 }`
 
 const resultFSColorConvs = {
@@ -257,9 +260,9 @@ vec3 rgb2hsv(vec3 c)
 }
 vec3 hsv2rgb(vec3 c)
 {
-    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
 void main(void) {

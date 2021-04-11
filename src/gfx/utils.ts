@@ -1,4 +1,3 @@
-import { mat3 } from 'gl-matrix'
 import type { GfxBuffer } from './buffers'
 import type { GfxFramebuffer } from './framebuffers'
 import { GfxSharerProgram, mustGetGfxAttribLocation } from './shaders'
@@ -46,10 +45,10 @@ export function makeSimpleDrawFunc<T extends unknown[]>(
 	gl: WebGLRenderingContext,
 	buffer: GfxBuffer,
 	shader: GfxSharerProgram,
-	opts: { defaultTransfMat?: mat3; beforeDraw?: (...args: T) => unknown } = {},
+	opts: { beforeDraw?: (...args: T) => unknown } = {}, //defaultTransfMat?: mat3
 ): (...args: T) => void {
 	//transfMat: mat3
-	const { defaultTransfMat = mat3.create(), beforeDraw = null } = opts || {}
+	const { beforeDraw = null } = opts || {} //defaultTransfMat = mat3.create()
 	const aPos = mustGetGfxAttribLocation(gl, shader, 'aPosition')
 	gl.enableVertexAttribArray(aPos)
 	// const uTransf = shader.getUniformLocation(gl, 'uTransform')
