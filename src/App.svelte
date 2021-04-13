@@ -4,7 +4,7 @@
 	import type { FrameMode } from './Config.svelte'
 	import Tip from './Tip.svelte'
 	import FPS from './FPS.svelte'
-	import { ReactionDiffusion, setupRecorder } from './engine'
+	import { ReactionDiffusion } from './engine'
 	import { controlSingle } from 'js-control'
 
 	let fps: FPS | null = null
@@ -16,11 +16,19 @@
 	let itersPerFrame = 24
 	let sidebarWrapElem: HTMLDivElement | null = null
 	let screenshotTip: { left: number; top: number } | null = null
+	let record = { started: false, address: '127.0.0.1:5001', hint: '' }
 
 	const mainRegion = { x: 0, y: 0, width: 1, height: 1 }
 
+	function updateRecordHint() {
+		record.hint = canvas
+			? `ffmpeg -vcodec rawvideo -f rawvideo -pixel_format rgba -r 60 -video_size ${canvas.width}x${canvas.height} -i - ...`
+			: ''
+	}
+
 	let maxFrameSize = 0.2
-	$: if (maxFrameSize === maxFrameSize && frameMode && sidebarWrapElem) resizeCanvas()
+	$: if (maxFrameSize === maxFrameSize && frameMode && sidebarWrapElem && record.started === record.started)
+		resizeCanvas()
 
 	let sidebarIsShown = true
 	let sidebarIsShownPrev = sidebarIsShown
@@ -61,7 +69,8 @@
 			}
 		}
 
-		const sidebarWidth = sidebarWrapElem ? sidebarWrapElem.getBoundingClientRect().width : 0
+		const sidebarWidth =
+			sidebarWrapElem && !record.started ? sidebarWrapElem.getBoundingClientRect().width : 0
 		const sideShift = (sidebarWidth / rect.width) * fullViewWidth
 		const scale = Math.min(fullViewWidth / enWidth, fullViewHeight / enHeight)
 		const scaleWithBorder = scale / (1 + maxFrameSize * 2)
@@ -78,6 +87,8 @@
 			canvas.width = fullViewWidth
 			canvas.height = fullViewHeight
 		}
+
+		updateRecordHint()
 	}
 
 	function saveScreenshot() {
@@ -103,8 +114,14 @@
 		// canvas.width = w
 		// canvas.height = h
 
-		const gl = canvas.getContext('webgl', { antialias: true, depth: false, alpha: false, stencil: false })
-		if (gl === null) return alert('webgl not available')
+		const _gl = canvas.getContext('webgl', {
+			antialias: true,
+			depth: false,
+			alpha: false,
+			stencil: false,
+		})
+		if (_gl === null) return alert('webgl not available')
+		const gl = _gl
 
 		try {
 			engine = new ReactionDiffusion(gl, 512, 512)
@@ -120,10 +137,9 @@
 
 		resizeCanvas()
 
+		let recordPromise = Promise.resolve()
+		let recordBuf = new Uint8Array(0)
 		function step() {
-			requestAnimationFrame(step)
-			// setTimeout(step, 1000)
-
 			const p = canvasDrawPoint
 			if (p !== null && p.upd < Date.now() - 250) {
 				rd.drawDot(...xy2canvas(p.x, p.y))
@@ -135,6 +151,21 @@
 			rd.draw(frameMode === 'hidden' ? null : mainRegion)
 			fps && fps.frame()
 
+			if (record && record.started) {
+				const address = record.address
+				const { width, height } = gl.canvas
+				if (recordBuf.length !== width * height * 4) recordBuf = new Uint8Array(width * height * 4)
+				gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, recordBuf)
+				recordPromise = recordPromise
+					.then(() => fetch('http://' + address, { method: 'POST', body: recordBuf }))
+					.catch(console.error)
+					.then(() => {
+						requestAnimationFrame(step)
+					})
+			} else {
+				requestAnimationFrame(step)
+				// setTimeout(step, 1000)
+			}
 			// recorder.requestFrame()
 		}
 		step()
@@ -206,6 +237,7 @@
 		bind:frameSize={maxFrameSize}
 		bind:frameMode
 		bind:itersPerFrame
+		bind:record
 	>
 		<span slot="fps"><FPS bind:this={fps} /></span>
 		<span slot="ips"><FPS bind:this={ips} average={5} /></span>

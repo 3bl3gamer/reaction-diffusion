@@ -17,6 +17,7 @@
 	export let onScreenshot: () => void
 	export let wrapElem: HTMLDivElement | null
 	export let isShown = true
+	export let record: { started: boolean; address: string; hint: string }
 
 	let colorMode: ResultColorMode = 'green'
 
@@ -501,6 +502,12 @@
 				размер: <input type="range" min="0" max="3" step="0.1" bind:value={frameSize} />
 				{frameSize}
 			</div>
+		</fieldset>
+		<fieldset>
+			<legend>Запись</legend>
+			<input bind:value={record.address} />
+			<label><input type="checkbox" bind:checked={record.started} />вкл</label><br />
+			<code style="white-space:normal">{record.hint}</code>
 		</fieldset>
 		<p class="small">
 			Вдохновлено <a href="https://www.instagram.com/p/CGRCGcVHh4_/">постом в Инстаграме</a>

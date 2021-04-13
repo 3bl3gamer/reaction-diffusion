@@ -6,7 +6,7 @@
 	let wrap: HTMLDivElement
 	let left = 0
 	let top = 0
-	export let origin: { left: number, top: number } | undefined
+	export let origin: { left: number, top: number } | undefined = undefined
 
 	onMount(() => {
 		const wrapRect = wrap.getBoundingClientRect()
